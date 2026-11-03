@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Home } from "@/pages/Home";
 import { AdminApp } from "@/pages/admin/AdminApp";
+import { AmazonReports } from "@/pages/AmazonReports";
 
 /**
  * Lightweight hash-based router.
@@ -22,6 +23,9 @@ export default function App() {
 
   if (hash.startsWith("#/admin")) {
     return <AdminApp />;
+  }
+  if (hash.startsWith("#/amazon")) {
+    return <AmazonReports />;
   }
   return <Home />;
 }

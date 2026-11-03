@@ -3,6 +3,7 @@ import { SummaryCards } from "./SummaryCards";
 import { DataTable } from "./DataTable";
 import { ChartBlock } from "./ChartBlock";
 import { downloadReportAsExcel } from "@/lib/excel";
+import { downloadReportAsPdf } from "@/core/exportPdf";
 
 export function ReportView({ result }: { result: ReportResult }) {
   return (
@@ -26,10 +27,10 @@ export function ReportView({ result }: { result: ReportResult }) {
           </button>
           <button
             type="button"
-            onClick={() => window.print()}
+            onClick={() => void downloadReportAsPdf(result, result.title)}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
-            Print / Save PDF
+            Download PDF
           </button>
         </div>
       </div>

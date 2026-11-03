@@ -16,6 +16,12 @@ export function Hero() {
             Upload your Amazon, Flipkart, AJIO, Meesho or Myntra order reports and instantly generate clean,
             professional analytics — sales performance, returns, and profit — without touching a spreadsheet formula.
           </p>
+          <a
+            href="#/amazon"
+            className="mt-8 inline-flex items-center rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
+          >
+            Try Amazon Seller Reports
+          </a>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-2 text-sm text-slate-500">
             <span className="font-medium text-slate-700">Supported marketplaces:</span>
             {SUPPORTED_MARKETPLACES.map((m) => (
