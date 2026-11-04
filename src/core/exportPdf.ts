@@ -3,7 +3,7 @@
 // entirely in the browser with jsPDF. Charts are shown on screen only.
 // ---------------------------------------------------------------------------
 
-import type { ReportResult } from "../types";
+import type { ReportResult, ReportTable } from "../types";
 
 /** jsPDF's built-in fonts cannot draw the rupee sign, so write "Rs." instead. */
 function clean(value: string | number): string {
@@ -96,4 +96,19 @@ export async function downloadReportAsPdf(result: ReportResult, reportName: stri
   }
 
   doc.save(`${fileSafe(reportName)}-${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+/** Downloads one table (every row, not just the preview) as a PDF. */
+export function downloadTableAsPdf(table: ReportTable, reportName: string): Promise<void> {
+  return downloadReportAsPdf(
+    {
+      title: table.title,
+      generatedAt: new Date().toISOString(),
+      summary: [],
+      tables: [{ ...table, title: `${reportName} - ${table.title}`, previewRows: undefined }],
+      charts: [],
+      insights: [],
+    },
+    `${reportName}-${table.title}`
+  );
 }

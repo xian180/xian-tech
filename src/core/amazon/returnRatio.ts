@@ -13,6 +13,7 @@ import { RETURN_COLUMNS, assertColumns, parseNumber } from "./adapter";
 import { loadOrderLines } from "./orders";
 import { DEFAULT_OPTIONS, type AmazonOptions } from "./options";
 import { DateRange, addTo, num, parseDateLoose, round2 } from "./util";
+import type { ReportChart } from "../../types";
 
 export function buildReturnRatio(
   orders: ParsedTable,
@@ -96,6 +97,58 @@ export function buildReturnRatio(
     );
   }
 
+  const bands = [
+    { label: "Below 10%", count: rows.filter((r) => r.ratio < 0.1).length },
+    { label: "10% to 25%", count: rows.filter((r) => r.ratio >= 0.1 && r.ratio < 0.25).length },
+    { label: "25% to 50%", count: rows.filter((r) => r.ratio >= 0.25 && r.ratio < 0.5).length },
+    { label: "50% and above", count: rows.filter((r) => r.ratio >= 0.5).length },
+  ].filter((b) => b.count > 0);
+
+  const top10Ratio = rows.slice(0, 10);
+  const charts: ReportChart[] = [
+    {
+      type: "hbar",
+      title: "Top 10 SKUs by Return Ratio",
+      subtitle: "Higher = more of the units sold came back",
+      labels: top10Ratio.map((r) => r.sku),
+      series: [{ name: "Return Ratio (%)", data: top10Ratio.map((r) => round2(r.ratio * 100)) }],
+      unit: "%",
+      color: "rose",
+    },
+    {
+      type: "bar",
+      title: "Orders vs Returns",
+      subtitle: "Top 10 SKUs by returned units",
+      labels: byReturns.map((r) => r.sku),
+      series: [
+        { name: "Orders", data: byReturns.map((r) => r.orderUnits) },
+        { name: "Returns", data: byReturns.map((r) => r.returned) },
+      ],
+      color: "indigo",
+    },
+    {
+      type: "donut",
+      title: "SKUs by Return Ratio Band",
+      subtitle: "How many SKUs fall in each ratio range",
+      labels: bands.map((b) => b.label),
+      series: [{ name: "SKUs", data: bands.map((b) => b.count) }],
+    },
+    {
+      type: "scatter",
+      title: "Orders vs Return Ratio",
+      subtitle: "Each dot is one SKU. Bigger dot = more returned units",
+      labels: [],
+      series: [],
+      points: rows.map((r) => ({ name: r.sku, x: r.orderUnits, y: round2(r.ratio * 100), z: r.returned })),
+      xLabel: "Units sold",
+      yLabel: "Return ratio (%)",
+      unit: "%",
+      referenceY: round2(overall * 100),
+      referenceLabel: "Overall",
+      color: "violet",
+    },
+  ];
+
   return {
     title: "SKU Return Ratio Report",
     generatedAt: new Date().toISOString(),
@@ -110,25 +163,10 @@ export function buildReturnRatio(
         title: "SKU Return Ratio (Orders high to low, then Return Ratio high to low)",
         columns: ["SKU", "Orders", "Return Qty", "Return Ratio (%)"],
         rows: rows.map((r) => [r.sku, r.orderUnits, r.returned, round2(r.ratio * 100)]),
+        previewRows: 10,
       },
     ],
-    charts: [
-      {
-        type: "bar",
-        title: "Top 10 SKUs by Return Ratio (%)",
-        labels: rows.slice(0, 10).map((r) => r.sku),
-        series: [{ name: "Return Ratio (%)", data: rows.slice(0, 10).map((r) => round2(r.ratio * 100)) }],
-      },
-      {
-        type: "bar",
-        title: "Orders vs Returns (top 10 by returns)",
-        labels: byReturns.map((r) => r.sku),
-        series: [
-          { name: "Orders", data: byReturns.map((r) => r.orderUnits) },
-          { name: "Returns", data: byReturns.map((r) => r.returned) },
-        ],
-      },
-    ],
+    charts,
     insights,
   };
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { FileSlot } from "@/components/FileSlot";
@@ -57,7 +57,12 @@ export function AmazonReports() {
   const [result, setResult] = useState<ReportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const resultRef = useRef<HTMLDivElement>(null);
   const selected = REPORTS.find((r) => r.key === reportKey)!;
+
+  useEffect(() => {
+    if (result) resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [result]);
 
   function pick(kind: "orders" | "returns", file: File) {
     const problem = validateFileBasics(file);
@@ -100,9 +105,10 @@ export function AmazonReports() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-indigo-50/40">
       <SiteHeader />
-      <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-5xl">
         <div className="mb-8">
           <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
             Amazon.in - Easy Ship / Seller Fulfilled
@@ -220,12 +226,14 @@ export function AmazonReports() {
               </button>
             </section>
 
-            <div>
-              {busy && <LoadingPanel message="Reading your files..." />}
-              {!busy && error && <ErrorPanel message={error} />}
-              {!busy && result && <ReportView result={result} />}
-            </div>
+            {busy && <LoadingPanel message="Reading your files..." />}
+            {!busy && error && <ErrorPanel message={error} />}
           </div>
+        </div>
+        </div>
+
+        <div ref={resultRef} className="mt-8 scroll-mt-24">
+          {!busy && result && <ReportView result={result} />}
         </div>
       </main>
       <SiteFooter />

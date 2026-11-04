@@ -37,19 +37,39 @@ export interface ReportTable {
   title: string;
   columns: string[];
   rows: (string | number)[][];
+  /** When set, only the first N rows are shown on screen (downloads still contain every row). */
+  previewRows?: number;
 }
+
+export type ChartColor = "indigo" | "violet" | "teal" | "amber" | "rose" | "sky" | "emerald";
 
 /** Chart data returned by a report script, rendered generically on the frontend. */
 export interface ReportChart {
-  type: "bar" | "line" | "pie";
+  type: "bar" | "line" | "pie" | "hbar" | "donut" | "pareto" | "treemap" | "scatter";
   title: string;
+  /** Short explanation shown under the title */
+  subtitle?: string;
   /** Category labels (x-axis / pie slices) */
   labels: (string | number)[];
-  /** One or more numeric series to plot against labels */
+  /**
+   * One or more numeric series to plot against labels.
+   * For "pareto": series[0] = bars, series[1] = cumulative percentage line.
+   */
   series: {
     name: string;
     data: number[];
   }[];
+  /** "₹", "%" or empty - used when formatting numbers */
+  unit?: string;
+  /** Main colour of the chart (defaults to indigo) */
+  color?: ChartColor;
+  /** "scatter" only: one point per item */
+  points?: { name: string; x: number; y: number; z?: number }[];
+  xLabel?: string;
+  yLabel?: string;
+  /** "scatter" only: horizontal guide line, e.g. the overall average */
+  referenceY?: number;
+  referenceLabel?: string;
 }
 
 /** The full structured result produced by a report's `run_report()` function. */

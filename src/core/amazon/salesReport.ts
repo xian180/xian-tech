@@ -9,7 +9,7 @@ import type { ReportResult } from "../../types";
 import type { ParsedTable } from "../readTable";
 import { loadOrderLines } from "./orders";
 import { DEFAULT_OPTIONS, type AmazonOptions } from "./options";
-import { addTo, barChart, inr, num, round2, sortDesc } from "./util";
+import { addTo, inr, num, round2, sortDesc, topWithOthers } from "./util";
 
 export function buildSalesReport(orders: ParsedTable, options: AmazonOptions = DEFAULT_OPTIONS): ReportResult {
   const { lines, stats } = loadOrderLines(orders, options);
@@ -35,6 +35,12 @@ export function buildSalesReport(orders: ParsedTable, options: AmazonOptions = D
   const skuRevenueSorted = sortDesc(skuRevenue).filter(([, v]) => v > 0);
   const stateUnitsSorted = sortDesc(stateUnits).filter(([, v]) => v > 0);
   const stateRevenueSorted = sortDesc(stateRevenue).filter(([, v]) => v > 0);
+
+  let running = 0;
+  const cumulativeShare = skuRevenueSorted.slice(0, 10).map(([, v]) => {
+    running += v;
+    return totalRevenue > 0 ? round2((running / totalRevenue) * 100) : 0;
+  });
 
   const insights: string[] = [];
   const period = stats.dates.label();
@@ -65,6 +71,7 @@ export function buildSalesReport(orders: ParsedTable, options: AmazonOptions = D
     summary: [
       { label: "Total Units Sold", value: num(totalUnits) },
       { label: "Total Revenue", value: inr(totalRevenue) },
+      { label: "Avg. Price per Unit", value: inr(totalUnits > 0 ? totalRevenue / totalUnits : 0) },
       { label: "SKUs Sold", value: num(skuUnitsSorted.length) },
       { label: "States Reached", value: num(stateUnitsSorted.length) },
       {
@@ -74,16 +81,47 @@ export function buildSalesReport(orders: ParsedTable, options: AmazonOptions = D
       },
     ],
     tables: [
-      { title: "SKU Wise Orders", columns: ["SKU", "Orders"], rows: skuUnitsSorted },
-      { title: "SKU Wise Revenue", columns: ["SKU", "Revenue (Rs.)"], rows: skuRevenueSorted.map(([k, v]) => [k, round2(v)]) },
-      { title: "State Wise Orders", columns: ["State", "Orders"], rows: stateUnitsSorted },
-      { title: "State Wise Revenue", columns: ["State", "Revenue (Rs.)"], rows: stateRevenueSorted.map(([k, v]) => [k, round2(v)]) },
+      { title: "SKU Wise Orders", columns: ["SKU", "Orders"], rows: skuUnitsSorted, previewRows: 10 },
+      { title: "SKU Wise Revenue", columns: ["SKU", "Revenue (Rs.)"], rows: skuRevenueSorted.map(([k, v]) => [k, round2(v)]), previewRows: 10 },
+      { title: "State Wise Orders", columns: ["State", "Orders"], rows: stateUnitsSorted, previewRows: 10 },
+      { title: "State Wise Revenue", columns: ["State", "Revenue (Rs.)"], rows: stateRevenueSorted.map(([k, v]) => [k, round2(v)]), previewRows: 10 },
     ],
     charts: [
-      barChart("Top 10 SKUs by Orders", "Orders", skuUnitsSorted),
-      barChart("Top 10 SKUs by Revenue (Rs.)", "Revenue", skuRevenueSorted),
-      barChart("Top 10 States by Orders", "Orders", stateUnitsSorted),
-      barChart("Top 10 States by Revenue (Rs.)", "Revenue", stateRevenueSorted),
+      {
+        type: "hbar",
+        title: "Top 10 SKUs by Orders",
+        subtitle: "Units sold per SKU",
+        labels: skuUnitsSorted.slice(0, 10).map(([k]) => k),
+        series: [{ name: "Orders", data: skuUnitsSorted.slice(0, 10).map(([, v]) => v) }],
+        color: "indigo",
+      },
+      {
+        type: "pareto",
+        title: "Top 10 SKUs by Revenue",
+        subtitle: "Bars = revenue. Line = share of total revenue covered so far",
+        labels: skuRevenueSorted.slice(0, 10).map(([k]) => k),
+        series: [
+          { name: "Revenue", data: skuRevenueSorted.slice(0, 10).map(([, v]) => round2(v)) },
+          { name: "Cumulative share (%)", data: cumulativeShare },
+        ],
+        unit: "₹",
+        color: "teal",
+      },
+      {
+        type: "donut",
+        title: "Orders by State",
+        subtitle: "Share of units sold (top 6 states + others)",
+        labels: topWithOthers(stateUnitsSorted, 6).map(([k]) => k),
+        series: [{ name: "Orders", data: topWithOthers(stateUnitsSorted, 6).map(([, v]) => v) }],
+      },
+      {
+        type: "treemap",
+        title: "Revenue by State (Top 10)",
+        subtitle: "Bigger box = more revenue",
+        labels: stateRevenueSorted.slice(0, 10).map(([k]) => k),
+        series: [{ name: "Revenue", data: stateRevenueSorted.slice(0, 10).map(([, v]) => round2(v)) }],
+        unit: "₹",
+      },
     ],
     insights,
   };

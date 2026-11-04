@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 
 import * as XLSX from "xlsx";
-import type { ReportResult } from "@/types";
+import type { ReportResult, ReportTable } from "@/types";
 import { SAMPLE_TEST_ROWS } from "@/config/defaultReports";
 
 export interface ValidationOutcome {
@@ -94,6 +94,15 @@ export function downloadReportAsExcel(result: ReportResult, reportName: string) 
   }
 
   XLSX.writeFile(workbook, `${slugifyFilename(reportName)}-${Date.now()}.xlsx`);
+}
+
+/** Downloads one table (every row, not just the preview) as a single-sheet Excel file. */
+export function downloadTableAsExcel(table: ReportTable, reportName: string) {
+  const rows = table.rows.map((row) => Object.fromEntries(table.columns.map((c, i) => [c, row[i] ?? ""])));
+  const sheet = XLSX.utils.json_to_sheet(rows.length ? rows : [Object.fromEntries(table.columns.map((c) => [c, ""]))]);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, sheet, sanitizeSheetName(table.title));
+  XLSX.writeFile(workbook, `${slugifyFilename(reportName)}-${slugifyFilename(table.title)}.xlsx`);
 }
 
 function sanitizeSheetName(name: string): string {

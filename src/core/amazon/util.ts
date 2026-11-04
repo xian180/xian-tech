@@ -60,3 +60,10 @@ export function barChart(title: string, seriesName: string, entries: [string, nu
     series: [{ name: seriesName, data: top.map(([, v]) => round2(v)) }],
   };
 }
+
+/** Top N entries plus one "Others" slice for everything else (used by donut charts). */
+export function topWithOthers(entries: [string, number][], keep = 6): [string, number][] {
+  const top = entries.slice(0, keep);
+  const rest = entries.slice(keep).reduce((s, [, v]) => s + v, 0);
+  return rest > 0 ? [...top, ["Others", rest]] : top;
+}
