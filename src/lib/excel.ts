@@ -70,6 +70,17 @@ export function downloadTemplate(requiredColumns: string[], reportName: string) 
   XLSX.writeFile(workbook, `${slugifyFilename(reportName)}-template.xlsx`);
 }
 
+/** Applies a ₹ #,##0.00 number format to every "money" column of a sheet made from `table`. */
+function applyMoneyFormat(sheet: XLSX.WorkSheet, table: ReportTable) {
+  table.columnFormats?.forEach((format, col) => {
+    if (format !== "money") return;
+    for (let r = 1; r <= table.rows.length; r++) {
+      const cell = sheet[XLSX.utils.encode_cell({ r, c: col })];
+      if (cell && cell.t === "n") cell.z = '"₹"#,##0.00';
+    }
+  });
+}
+
 /** Exports a generated report result as a multi-sheet Excel workbook. */
 export function downloadReportAsExcel(result: ReportResult, reportName: string) {
   const workbook = XLSX.utils.book_new();
@@ -83,6 +94,7 @@ export function downloadReportAsExcel(result: ReportResult, reportName: string) 
   result.tables.forEach((table, idx) => {
     const rows = table.rows.map((row) => Object.fromEntries(table.columns.map((c, i) => [c, row[i] ?? ""])));
     const sheet = XLSX.utils.json_to_sheet(rows.length ? rows : [Object.fromEntries(table.columns.map((c) => [c, ""]))]);
+    applyMoneyFormat(sheet, table);
     const sheetName = sanitizeSheetName(table.title || `Table ${idx + 1}`);
     XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
   });
@@ -100,6 +112,7 @@ export function downloadReportAsExcel(result: ReportResult, reportName: string) 
 export function downloadTableAsExcel(table: ReportTable, reportName: string) {
   const rows = table.rows.map((row) => Object.fromEntries(table.columns.map((c, i) => [c, row[i] ?? ""])));
   const sheet = XLSX.utils.json_to_sheet(rows.length ? rows : [Object.fromEntries(table.columns.map((c) => [c, ""]))]);
+  applyMoneyFormat(sheet, table);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, sanitizeSheetName(table.title));
   XLSX.writeFile(workbook, `${slugifyFilename(reportName)}-${slugifyFilename(table.title)}.xlsx`);

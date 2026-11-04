@@ -47,6 +47,13 @@ export function buildSalesReport(orders: ParsedTable, options: AmazonOptions = D
   if (period) insights.push(`Orders in this file are from ${period}.`);
   if (skuUnitsSorted[0]) insights.push(`Best-selling SKU: ${skuUnitsSorted[0][0]} (${num(skuUnitsSorted[0][1])} units).`);
   if (skuRevenueSorted[0]) insights.push(`Highest-revenue SKU: ${skuRevenueSorted[0][0]} (${inr(skuRevenueSorted[0][1])}).`);
+  if (cumulativeShare.length >= 3) {
+    const top3 = cumulativeShare[2];
+    const topN = cumulativeShare[cumulativeShare.length - 1];
+    insights.push(
+      `Your top 3 SKUs bring ${top3}% of total revenue, and the top ${cumulativeShare.length} SKUs together bring ${topN}%.`
+    );
+  }
   if (stateUnitsSorted[0]) insights.push(`Top state by orders: ${stateUnitsSorted[0][0]} (${num(stateUnitsSorted[0][1])} units).`);
   if (stateRevenueSorted[0]) insights.push(`Top state by revenue: ${stateRevenueSorted[0][0]} (${inr(stateRevenueSorted[0][1])}).`);
   if (options.excludeCancelled && stats.cancelledRows > 0) {
@@ -81,10 +88,10 @@ export function buildSalesReport(orders: ParsedTable, options: AmazonOptions = D
       },
     ],
     tables: [
-      { title: "SKU Wise Orders", columns: ["SKU", "Orders"], rows: skuUnitsSorted, previewRows: 10 },
-      { title: "SKU Wise Revenue", columns: ["SKU", "Revenue (Rs.)"], rows: skuRevenueSorted.map(([k, v]) => [k, round2(v)]), previewRows: 10 },
-      { title: "State Wise Orders", columns: ["State", "Orders"], rows: stateUnitsSorted, previewRows: 10 },
-      { title: "State Wise Revenue", columns: ["State", "Revenue (Rs.)"], rows: stateRevenueSorted.map(([k, v]) => [k, round2(v)]), previewRows: 10 },
+      { title: "SKU Wise Orders", columns: ["SKU", "Orders"], rows: skuUnitsSorted, previewRows: 10, columnFormats: ["text", "number"] },
+      { title: "SKU Wise Revenue", columns: ["SKU", "Revenue (₹)"], rows: skuRevenueSorted.map(([k, v]) => [k, round2(v)]), previewRows: 10, columnFormats: ["text", "money"] },
+      { title: "State Wise Orders", columns: ["State", "Orders"], rows: stateUnitsSorted, previewRows: 10, columnFormats: ["text", "number"] },
+      { title: "State Wise Revenue", columns: ["State", "Revenue (₹)"], rows: stateRevenueSorted.map(([k, v]) => [k, round2(v)]), previewRows: 10, columnFormats: ["text", "money"] },
     ],
     charts: [
       {
@@ -98,21 +105,14 @@ export function buildSalesReport(orders: ParsedTable, options: AmazonOptions = D
       {
         type: "pareto",
         title: "Top 10 SKUs by Revenue",
-        subtitle: "Bars = revenue. Line = share of total revenue covered so far",
+        subtitle: "Bars = revenue of each SKU. Orange line = running total: how much of your total revenue the top SKUs bring together",
         labels: skuRevenueSorted.slice(0, 10).map(([k]) => k),
         series: [
           { name: "Revenue", data: skuRevenueSorted.slice(0, 10).map(([, v]) => round2(v)) },
-          { name: "Cumulative share (%)", data: cumulativeShare },
+          { name: "Share of total revenue so far (%)", data: cumulativeShare },
         ],
         unit: "₹",
         color: "teal",
-      },
-      {
-        type: "donut",
-        title: "Orders by State",
-        subtitle: "Share of units sold (top 6 states + others)",
-        labels: topWithOthers(stateUnitsSorted, 6).map(([k]) => k),
-        series: [{ name: "Orders", data: topWithOthers(stateUnitsSorted, 6).map(([, v]) => v) }],
       },
       {
         type: "treemap",
@@ -121,6 +121,13 @@ export function buildSalesReport(orders: ParsedTable, options: AmazonOptions = D
         labels: stateRevenueSorted.slice(0, 10).map(([k]) => k),
         series: [{ name: "Revenue", data: stateRevenueSorted.slice(0, 10).map(([, v]) => round2(v)) }],
         unit: "₹",
+      },
+      {
+        type: "donut",
+        title: "Orders by State",
+        subtitle: "Share of units sold (top 6 states + others)",
+        labels: topWithOthers(stateUnitsSorted, 6).map(([k]) => k),
+        series: [{ name: "Orders", data: topWithOthers(stateUnitsSorted, 6).map(([, v]) => v) }],
       },
     ],
     insights,

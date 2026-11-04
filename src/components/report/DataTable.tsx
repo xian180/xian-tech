@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ReportTable } from "@/types";
 import { downloadTableAsExcel } from "@/lib/excel";
 import { downloadTableAsPdf } from "@/core/exportPdf";
+import { formatCell } from "@/core/format";
 
 function DownloadMenu({ table, reportName }: { table: ReportTable; reportName: string }) {
   const [open, setOpen] = useState(false);
@@ -107,7 +108,7 @@ export function DataTable({ table, reportName = "report" }: { table: ReportTable
                         className={`px-2 py-2 ${j === 0 ? "font-medium text-slate-800" : "text-right tabular-nums text-slate-700"}`}
                         style={isBarCol ? { background: `linear-gradient(90deg, transparent ${100 - pct}%, rgba(99,102,241,0.14) ${100 - pct}%)` } : undefined}
                       >
-                        {typeof cell === "number" ? cell.toLocaleString("en-IN", { maximumFractionDigits: 2 }) : cell}
+                        {formatCell(cell, table.columnFormats?.[j])}
                       </td>
                     );
                   })}

@@ -39,6 +39,8 @@ export interface ReportTable {
   rows: (string | number)[][];
   /** When set, only the first N rows are shown on screen (downloads still contain every row). */
   previewRows?: number;
+  /** Optional per-column display format. "money" shows ₹ and 2 decimals everywhere (screen, Excel, PDF). */
+  columnFormats?: ("text" | "number" | "money")[];
 }
 
 export type ChartColor = "indigo" | "violet" | "teal" | "amber" | "rose" | "sky" | "emerald";

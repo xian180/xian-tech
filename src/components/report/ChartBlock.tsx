@@ -22,6 +22,7 @@ import {
   ZAxis,
 } from "recharts";
 import type { ReportChart } from "@/types";
+import { formatMoney } from "@/core/format";
 import { SLICE_COLORS, TONES, compact, formatValue } from "./theme";
 
 const GRID = "#e2e8f0";
@@ -55,25 +56,31 @@ function TreemapCell(props: any) {
   const { x, y, width, height, index, name, value } = props;
   if (!width || !height || index === undefined) return null;
   const fill = SLICE_COLORS[index % SLICE_COLORS.length];
-  const big = width > 64 && height > 40;
-  const maxChars = Math.max(3, Math.floor((width - 20) / 8.5));
+  const showText = width > 56 && height > 38;
+  const maxChars = Math.max(3, Math.floor((width - 18) / 7.6));
+  const label = String(name);
+  const shown = label.length > maxChars ? label.slice(0, maxChars - 1) + "…" : label;
+  // Always try the full amount (₹26,813.00); use a smaller font in narrow boxes, a short form (₹26.8k) only if it cannot fit.
+  const fullFits = width >= 66;
+  const amount = fullFits ? formatMoney(Number(value)) : `₹${compact(Number(value))}`;
+  const amountSize = width >= 100 ? 11 : 9.5;
+  // stroke="none": the chart's white box border must not be inherited by the text (it made it look bold).
   return (
     <g>
-      <rect x={x} y={y} width={width} height={height} rx={8} fill={fill} stroke="#fff" strokeWidth={3} opacity={0.92} />
-      {big && (
+      <rect x={x} y={y} width={width} height={height} rx={8} fill={fill} stroke="#fff" strokeWidth={3} opacity={0.95} />
+      {showText && (
         <>
-          <text x={x + 10} y={y + 20} fill="#fff" fontSize={12} fontWeight={700}>
-            {String(name).length > maxChars ? String(name).slice(0, maxChars - 1) + "…" : name}
+          <text x={x + 10} y={y + 20} fill="#fff" stroke="none" fontSize={12} fontWeight={600} style={{ pointerEvents: "none" }}>
+            {shown}
           </text>
-          <text x={x + 10} y={y + 37} fill="#fff" fontSize={11} opacity={0.9}>
-            {`₹${compact(Number(value))}`}
+          <text x={x + 10} y={y + 37} fill="#fff" stroke="none" fontSize={amountSize} fontWeight={400} style={{ pointerEvents: "none" }}>
+            {amount}
           </text>
         </>
       )}
     </g>
   );
 }
-
 
 /** Donut / pie with a legend that moves below the ring when the card is narrow (phones). */
 function DonutBlock({ chart, rows, first }: { chart: ReportChart; rows: Record<string, string | number>[]; first: string }) {
@@ -160,7 +167,7 @@ function renderChart(chart: ReportChart, uid: string) {
     return row;
   });
   const first = chart.series[0]?.name ?? "value";
-  const tick = (v: number) => (chart.unit === "₹" ? compact(v) : chart.unit === "%" ? `${v}%` : compact(v));
+  const tick = (v: number) => (chart.unit === "₹" ? `₹${compact(v)}` : chart.unit === "%" ? `${v}%` : compact(v));
 
   switch (chart.type) {
     case "hbar":
@@ -175,7 +182,7 @@ function renderChart(chart: ReportChart, uid: string) {
             <YAxis type="category" dataKey="name" width={76} tick={{ ...AXIS, fill: "#334155" }} axisLine={false} tickLine={false} />
             <Tooltip cursor={{ fill: tone.soft }} content={<TooltipBox unit={chart.unit} />} />
             <Bar dataKey={first} radius={[0, 8, 8, 0]} fill={`url(#${uid}-h)`} barSize={16}
-              label={{ position: "right", fontSize: 11, fill: "#475569", formatter: (v: any) => formatValue(Number(v), chart.unit === "₹" ? "" : chart.unit) }} />
+              label={{ position: "right", fontSize: 11, fill: "#475569", formatter: (v: any) => formatValue(Number(v), chart.unit) }} />
           </BarChart>
         </ResponsiveContainer>
       );

@@ -26,7 +26,7 @@ export function compact(n: number): string {
 
 export function formatValue(n: number, unit?: string): string {
   const text = n.toLocaleString("en-IN", { maximumFractionDigits: 2 });
-  if (unit === "₹") return `₹${text}`;
+  if (unit === "₹") return `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   if (unit === "%") return `${text}%`;
   return text;
 }

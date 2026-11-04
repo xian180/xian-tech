@@ -4,17 +4,19 @@
 // ---------------------------------------------------------------------------
 
 import type { ReportResult, ReportTable } from "../types";
+import { formatCell, type ColumnFormat } from "./format";
 
 /** jsPDF's built-in fonts cannot draw the rupee sign, so write "Rs." instead. */
 function clean(value: string | number): string {
   return String(value)
+    .replace(/\(₹\)/g, "(Rs.)")
     .replace(/₹\s?/g, "Rs. ")
     // eslint-disable-next-line no-control-regex
     .replace(/[^\x00-\xFF]/g, "");
 }
 
-function cell(value: string | number): string {
-  return typeof value === "number" ? value.toLocaleString("en-IN", { maximumFractionDigits: 2 }) : clean(value);
+function cell(value: string | number, format?: ColumnFormat): string {
+  return typeof value === "number" ? clean(formatCell(value, format)) : clean(value);
 }
 
 function fileSafe(name: string): string {
@@ -79,7 +81,7 @@ export async function downloadReportAsPdf(result: ReportResult, reportName: stri
     autoTable(doc, {
       startY: y + 6,
       head: [table.columns.map(clean)],
-      body: table.rows.map((row) => row.map(cell)),
+      body: table.rows.map((row) => row.map((v, j) => cell(v, table.columnFormats?.[j]))),
       margin: { left: margin, right: margin },
       styles: { fontSize: 8.5, cellPadding: 4 },
       headStyles: { fillColor: [79, 70, 229] },

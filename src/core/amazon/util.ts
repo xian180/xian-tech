@@ -37,7 +37,7 @@ export class DateRange {
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;
 
-export const inr = (n: number) => `₹${round2(n).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+export const inr = (n: number) => `₹${round2(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export const num = (n: number) => n.toLocaleString("en-IN");
 
