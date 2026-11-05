@@ -22,6 +22,12 @@ export function SiteHeader() {
             Amazon Reports
           </a>
           <a
+            href="#/flipkart"
+            className="rounded-lg bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
+          >
+            Flipkart Reports
+          </a>
+          <a
             href="#reports"
             className="hidden rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 sm:block"
           >

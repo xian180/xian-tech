@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Home } from "@/pages/Home";
 import { AdminApp } from "@/pages/admin/AdminApp";
 import { AmazonReports } from "@/pages/AmazonReports";
+import { FlipkartReports } from "@/pages/FlipkartReports";
 
 /**
  * Lightweight hash-based router.
@@ -26,6 +27,9 @@ export default function App() {
   }
   if (hash.startsWith("#/amazon")) {
     return <AmazonReports />;
+  }
+  if (hash.startsWith("#/flipkart")) {
+    return <FlipkartReports />;
   }
   return <Home />;
 }
