@@ -126,6 +126,12 @@ export function buildFlipkartTaxAdsReport(files: PaymentFile[]): ReportResult {
         : `Check: these amounts do NOT match the Summary sheet of Flipkart - ${mismatches.join(" ")}`
     );
   }
+  const filtered = used.find((f) => f.dateFilter);
+  if (filtered) {
+    insights.push(
+      `Date filter is on: only payments made ${filtered.dateFilter} (by Payment Date) are counted, so Flipkart's Summary check is skipped.`
+    );
+  }
   insights.push("These are the figures in Flipkart's payment report. Please confirm with your CA before using them for GST or Income Tax filing.");
   insights.push(...skipped);
 

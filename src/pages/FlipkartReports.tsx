@@ -6,7 +6,10 @@ import { MultiFileSlot } from "@/components/MultiFileSlot";
 import { OptionRow, SpeedBanner } from "@/components/MarketplaceParts";
 import { ReportView } from "@/components/report/ReportView";
 import { LoadingPanel, ErrorPanel } from "@/components/StatusPanels";
-import { readTableFile, validateFileBasics } from "@/core/readTable";
+import { readTableFile, validateFileBasics, type ParsedTable } from "@/core/readTable";
+import { DateRangeBar } from "@/components/DateRangeBar";
+import { NO_DATE_FILTER, type DateFilter } from "@/core/dateFilter";
+import { filterFlipkartOrders, filterFlipkartReturns, filterPaymentFiles, flipkartCoverage } from "@/core/flipkart/dateFilter";
 import { buildFlipkartOrdersReport } from "@/core/flipkart/ordersReport";
 import { buildFlipkartReturnsReport } from "@/core/flipkart/returnsReport";
 import { buildFlipkartReturnRatio } from "@/core/flipkart/returnRatio";
@@ -38,6 +41,75 @@ interface ReportBundle {
   sample: boolean;
 }
 
+/** Everything read from the uploaded files, kept so the dates can be changed without reading the files again. */
+interface Inputs {
+  ordersTable: ParsedTable;
+  returnsTable: ParsedTable | null;
+  returnsReadProblem: string | null;
+  payments: PaymentFile[] | null;
+  paymentsReadProblem: string | null;
+  /** One SkuNames for all reports, so a SKU is spelled the same way everywhere */
+  names: SkuNames;
+  sample: boolean;
+  coverage: string[];
+}
+
+const errorText = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
+
+/** Builds every report that is possible from the read files, for the chosen dates. */
+function buildBundle(inputs: Inputs, options: FlipkartOptions, filter: DateFilter, ms: number): ReportBundle {
+  const { names } = inputs;
+  const ordersTable = filterFlipkartOrders(inputs.ordersTable, filter); // nothing left = message for the person
+  const ordersReport = buildFlipkartOrdersReport(ordersTable, options, names);
+
+  let returnsReport: ReportResult | null = null;
+  let ratioReport: ReportResult | null = null;
+  let returnsProblem: string | null = inputs.returnsReadProblem;
+  let returnRows = 0;
+  if (inputs.returnsTable && !returnsProblem) {
+    try {
+      const returnsTable = filterFlipkartReturns(inputs.returnsTable, filter);
+      returnRows = returnsTable.rows.length;
+      returnsReport = buildFlipkartReturnsReport(returnsTable, options, names);
+      ratioReport = buildFlipkartReturnRatio(ordersTable, returnsTable, options, names);
+    } catch (e) {
+      returnsReport = null;
+      ratioReport = null;
+      returnsProblem = errorText(e, "The Returns file could not be read.");
+    }
+  }
+
+  let paymentsReport: ReportResult | null = null;
+  let taxAdsReport: ReportResult | null = null;
+  let paymentsProblem: string | null = inputs.paymentsReadProblem;
+  let paymentRows = 0;
+  if (inputs.payments && !paymentsProblem) {
+    try {
+      const read = filterPaymentFiles(inputs.payments, filter);
+      paymentRows = read.reduce((sum, f) => sum + f.lines.length, 0);
+      paymentsReport = buildFlipkartPaymentReport(read);
+      taxAdsReport = buildFlipkartTaxAdsReport(read);
+    } catch (e) {
+      paymentsProblem = errorText(e, "The payment files could not be read.");
+    }
+  }
+
+  return {
+    orders: ordersReport,
+    returns: returnsReport,
+    ratio: ratioReport,
+    payments: paymentsReport,
+    taxAds: taxAdsReport,
+    paymentsProblem,
+    paymentRows,
+    returnsProblem,
+    ms,
+    orderRows: ordersTable.rows.length,
+    returnRows,
+    sample: inputs.sample,
+  };
+}
+
 export function FlipkartReports() {
   const [ordersFile, setOrdersFile] = useState<File | null>(null);
   const [returnsFile, setReturnsFile] = useState<File | null>(null);
@@ -50,6 +122,9 @@ export function FlipkartReports() {
   const [bundle, setBundle] = useState<ReportBundle | null>(null);
   const [tab, setTab] = useState<TabKey>("orders");
   const [error, setError] = useState<string | null>(null);
+  const [inputs, setInputs] = useState<Inputs | null>(null);
+  const [dateFilter, setDateFilter] = useState<DateFilter>(NO_DATE_FILTER);
+  const [dateError, setDateError] = useState<string | null>(null);
 
   const resultRef = useRef<HTMLDivElement>(null);
 
@@ -90,66 +165,76 @@ export function FlipkartReports() {
     setError(null);
     setBundle(null);
     setBusy(true);
+    setDateFilter(NO_DATE_FILTER);
+    setDateError(null);
     const started = performance.now();
     try {
       const ordersTable = await readTableFile(orders);
-      // One SkuNames for all reports, so a SKU is spelled the same way everywhere
       const names = new SkuNames();
-      const ordersReport = buildFlipkartOrdersReport(ordersTable, options, names);
 
-      let returnsReport: ReportResult | null = null;
-      let ratioReport: ReportResult | null = null;
-      let returnsProblem: string | null = null;
-      let returnRows = 0;
+      let returnsTable: ParsedTable | null = null;
+      let returnsReadProblem: string | null = null;
       if (returns) {
         try {
-          const returnsTable = await readTableFile(returns);
-          returnRows = returnsTable.rows.length;
-          returnsReport = buildFlipkartReturnsReport(returnsTable, options, names);
-          ratioReport = buildFlipkartReturnRatio(ordersTable, returnsTable, options, names);
+          returnsTable = await readTableFile(returns);
         } catch (e) {
-          returnsReport = null;
-          ratioReport = null;
-          returnsProblem = e instanceof Error ? e.message : "The Returns file could not be read.";
+          returnsReadProblem = errorText(e, "The Returns file could not be read.");
         }
       }
 
-      let paymentsReport: ReportResult | null = null;
-      let taxAdsReport: ReportResult | null = null;
-      let paymentsProblem: string | null = null;
-      let paymentRows = 0;
+      const read: Inputs = {
+        ordersTable,
+        returnsTable,
+        returnsReadProblem,
+        payments: null,
+        paymentsReadProblem: null,
+        names,
+        sample,
+        coverage: [],
+      };
+
+      // The orders report is built first, so the SKU spelling of the Orders file is the one every report uses
+      const firstBundle = buildBundle(read, options, NO_DATE_FILTER, 0);
+
       if (payments.length > 0) {
         try {
-          const read: PaymentFile[] = [];
-          for (const f of payments) read.push(await readFlipkartPaymentFile(f, names));
-          paymentRows = read.reduce((s, f) => s + f.lines.length, 0);
-          paymentsReport = buildFlipkartPaymentReport(read);
-          taxAdsReport = buildFlipkartTaxAdsReport(read);
+          const files: PaymentFile[] = [];
+          for (const f of payments) files.push(await readFlipkartPaymentFile(f, names));
+          read.payments = files;
         } catch (e) {
-          paymentsProblem = e instanceof Error ? e.message : "The payment files could not be read.";
+          read.paymentsReadProblem = errorText(e, "The payment files could not be read.");
         }
       }
+      try {
+        read.coverage = flipkartCoverage(ordersTable, returnsTable, read.payments);
+      } catch {
+        read.coverage = [];
+      }
 
+      const full = read.payments || read.paymentsReadProblem ? buildBundle(read, options, NO_DATE_FILTER, 0) : firstBundle;
       const ms = performance.now() - started;
+      setInputs(read);
       setTab("orders");
-      setBundle({
-        orders: ordersReport,
-        returns: returnsReport,
-        ratio: ratioReport,
-        payments: paymentsReport,
-        taxAds: taxAdsReport,
-        paymentsProblem,
-        paymentRows,
-        returnsProblem,
-        ms,
-        orderRows: ordersTable.rows.length,
-        returnRows,
-        sample,
-      });
+      setBundle({ ...full, ms });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong while reading your files.");
+      setError(errorText(e, "Something went wrong while reading your files."));
     } finally {
       setBusy(false);
+    }
+  }
+
+  /** Rebuilds every report for the chosen days, from the files that are already read. */
+  function applyDates(next: DateFilter) {
+    if (!inputs) return;
+    setDateError(null);
+    const started = performance.now();
+    try {
+      const rebuilt = buildBundle(inputs, options, next, 0);
+      setDateFilter(next);
+      setBundle({ ...rebuilt, ms: performance.now() - started });
+    } catch (e) {
+      // Nothing found for these days: keep the reports that are on screen and say so
+      setDateError(errorText(e, "These dates could not be applied."));
     }
   }
 
@@ -326,6 +411,17 @@ export function FlipkartReports() {
                     : `${bundle.orderRows.toLocaleString("en-IN")} order rows${bundle.paymentRows > 0 ? ` + ${bundle.paymentRows.toLocaleString("en-IN")} payment rows` : ""}`
                 }
               />
+
+              {inputs && (
+                <DateRangeBar
+                  applied={dateFilter}
+                  busy={busy}
+                  coverage={inputs.coverage}
+                  error={dateError}
+                  onApply={applyDates}
+                  note="Orders are picked by order date, Returns by return date and Payments (revenue, tax, ads) by payment date. SKU Return Ratio compares the orders placed in these days with the returns made in these days."
+                />
+              )}
 
               <div className="flex flex-wrap items-center gap-3">
                 <div role="tablist" className="inline-flex flex-wrap rounded-xl bg-slate-100 p-1">

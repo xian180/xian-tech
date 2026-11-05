@@ -26,6 +26,21 @@ export interface PaymentLine {
   sale: number;
   refund: number;
   qty: number;
+  /** Payment Date of the row as written in the file (used by the date filter) */
+  date: string;
+  /** Taxes on this row, negative as Flipkart writes them */
+  tcs: number;
+  tds: number;
+  gstOnFees: number;
+}
+
+/** One row of the "Ads" sheet, as written in the file (negative = money out) */
+export interface PaymentAdsRow {
+  date: string;
+  topup: number;
+  redeem: number;
+  refund: number;
+  gst: number;
 }
 
 export interface PaymentFile {
@@ -42,6 +57,10 @@ export interface PaymentFile {
   tax: { tcs: number; tds: number; gstOnFees: number };
   /** The "Ads" sheet: wallet movements for advertisement (null when the file has no Ads sheet) */
   ads: { topup: number; redeem: number; refund: number; gst: number; rows: number } | null;
+  /** Rows of the Ads sheet (the date filter works on these) */
+  adsRows: PaymentAdsRow[];
+  /** Set when a date filter was applied: only this part of the file is counted */
+  dateFilter?: string;
   /** Flipkart's own tax / ads totals from the Summary sheet (null when not found) */
   summaryTax: {
     tcs: number | null;
@@ -119,18 +138,26 @@ export async function readFlipkartPaymentFile(file: File, names: SkuNames): Prom
 
   const lines: PaymentLine[] = [];
   const tax = { tcs: 0, tds: 0, gstOnFees: 0 };
+  const dateAt = col.get("payment date");
   const taxCol = { tcs: col.get("tcs (rs.)"), tds: col.get("tds (rs.)"), gstOnFees: col.get("gst on mp fees (rs.)") };
   const cellNum = (row: unknown[], i: number | undefined) => (i === undefined ? 0 : parseNumber(String(row[i] ?? "")));
   for (const row of aoa.slice(headerAt + 1)) {
     if (String(row[at("id")] ?? "").trim() === "") continue; // blank or total line
-    tax.tcs += cellNum(row, taxCol.tcs);
-    tax.tds += cellNum(row, taxCol.tds);
-    tax.gstOnFees += cellNum(row, taxCol.gstOnFees);
+    const rowTcs = cellNum(row, taxCol.tcs);
+    const rowTds = cellNum(row, taxCol.tds);
+    const rowGst = cellNum(row, taxCol.gstOnFees);
+    tax.tcs += rowTcs;
+    tax.tds += rowTds;
+    tax.gstOnFees += rowGst;
     lines.push({
       sku: names.canon(String(row[at("sku")] ?? "")),
       sale: parseNumber(String(row[at("sale")] ?? "")),
       refund: parseNumber(String(row[at("refund")] ?? "")),
       qty: parseNumber(String(row[at("qty")] ?? "")),
+      date: dateAt === undefined ? "" : String(row[dateAt] ?? "").trim(),
+      tcs: rowTcs,
+      tds: rowTds,
+      gstOnFees: rowGst,
     });
   }
   if (lines.length === 0) throw new ReportInputError(`The payment file "${file.name}" has no order rows.`);
@@ -160,6 +187,7 @@ export async function readFlipkartPaymentFile(file: File, names: SkuNames): Prom
   }
 
   let ads: PaymentFile["ads"] = null;
+  const adsRows: PaymentAdsRow[] = [];
   const adsName = sheetNamed("ads");
   if (adsName) {
     const a = toAoa(adsName);
@@ -176,10 +204,18 @@ export async function readFlipkartPaymentFile(file: File, names: SkuNames): Prom
         if (typeAt === undefined || String(row[typeAt] ?? "").trim() === "") continue;
         sum.rows++;
         // redeem and its reversal belong together: the sheet shows them in two columns
-        sum.redeem += cellNum(row, ac.get("wallet redeem (rs.)")) + cellNum(row, ac.get("wallet redeem reversal (rs.)"));
-        sum.topup += cellNum(row, ac.get("wallet topup (rs.)"));
-        sum.refund += cellNum(row, ac.get("wallet refund (rs.)"));
-        sum.gst += cellNum(row, ac.get("gst on ads fees (rs.)"));
+        const ar: PaymentAdsRow = {
+          date: String(row[ac.get("payment date") ?? -1] ?? "").trim(),
+          redeem: cellNum(row, ac.get("wallet redeem (rs.)")) + cellNum(row, ac.get("wallet redeem reversal (rs.)")),
+          topup: cellNum(row, ac.get("wallet topup (rs.)")),
+          refund: cellNum(row, ac.get("wallet refund (rs.)")),
+          gst: cellNum(row, ac.get("gst on ads fees (rs.)")),
+        };
+        adsRows.push(ar);
+        sum.redeem += ar.redeem;
+        sum.topup += ar.topup;
+        sum.refund += ar.refund;
+        sum.gst += ar.gst;
       }
       ads = sum;
     }
@@ -195,6 +231,7 @@ export async function readFlipkartPaymentFile(file: File, names: SkuNames): Prom
     summaryRefund,
     tax,
     ads,
+    adsRows,
     summaryTax,
   };
 }
@@ -310,6 +347,12 @@ export function buildFlipkartPaymentReport(files: PaymentFile[]): ReportResult {
       mismatches.length === 0
         ? `Check: Sale and Refund totals match the Summary sheet of Flipkart for all ${checked} file(s).`
         : `Check: these totals do NOT match the Summary sheet of Flipkart - ${mismatches.join(" ")}`
+    );
+  }
+  const filtered = used.find((f) => f.dateFilter);
+  if (filtered) {
+    insights.push(
+      `Date filter is on: only payments made ${filtered.dateFilter} (by Payment Date) are counted, so Flipkart's Summary check is skipped.`
     );
   }
   insights.push("State wise revenue is not available: Flipkart's payment report does not contain the customer's state.");
