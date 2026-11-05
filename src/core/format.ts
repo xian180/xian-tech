@@ -4,7 +4,8 @@ export type ColumnFormat = "text" | "number" | "money";
 
 /** 17690 -> "₹17,690.00" (Indian digit grouping, always 2 decimals) */
 export function formatMoney(n: number): string {
-  return `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const body = Math.abs(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${n < 0 && body !== "0.00" ? "-" : ""}₹${body}`;
 }
 
 export function formatCell(value: string | number, format?: ColumnFormat): string {

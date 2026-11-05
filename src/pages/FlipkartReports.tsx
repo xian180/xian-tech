@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { FileSlot } from "@/components/FileSlot";
+import { MultiFileSlot } from "@/components/MultiFileSlot";
 import { OptionRow, SpeedBanner } from "@/components/MarketplaceParts";
 import { ReportView } from "@/components/report/ReportView";
 import { LoadingPanel, ErrorPanel } from "@/components/StatusPanels";
@@ -9,20 +10,25 @@ import { readTableFile, validateFileBasics } from "@/core/readTable";
 import { buildFlipkartOrdersReport } from "@/core/flipkart/ordersReport";
 import { buildFlipkartReturnsReport } from "@/core/flipkart/returnsReport";
 import { buildFlipkartReturnRatio } from "@/core/flipkart/returnRatio";
+import { buildFlipkartPaymentReport, readFlipkartPaymentFile, type PaymentFile } from "@/core/flipkart/payments";
 import { DEFAULT_FLIPKART_OPTIONS, type FlipkartOptions } from "@/core/flipkart/options";
 import { SkuNames } from "@/core/flipkart/sku";
 import { getFlipkartSampleFiles } from "@/core/samples";
 import { cn } from "@/utils/cn";
 import type { ReportResult } from "@/types";
 
-type TabKey = "orders" | "returns" | "ratio";
+type TabKey = "orders" | "returns" | "ratio" | "payments";
 
 interface ReportBundle {
   orders: ReportResult;
   returns: ReportResult | null;
   ratio: ReportResult | null;
+  payments: ReportResult | null;
   /** Shown when the Returns file was given but could not be used */
   returnsProblem: string | null;
+  /** Shown when the payment files were given but could not be used */
+  paymentsProblem: string | null;
+  paymentRows: number;
   /** Time taken to read the files and build every report, in milliseconds */
   ms: number;
   orderRows: number;
@@ -35,6 +41,8 @@ export function FlipkartReports() {
   const [returnsFile, setReturnsFile] = useState<File | null>(null);
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [returnsError, setReturnsError] = useState<string | null>(null);
+  const [paymentFiles, setPaymentFiles] = useState<File[]>([]);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
   const [options, setOptions] = useState<FlipkartOptions>(DEFAULT_FLIPKART_OPTIONS);
   const [busy, setBusy] = useState(false);
   const [bundle, setBundle] = useState<ReportBundle | null>(null);
@@ -60,8 +68,23 @@ export function FlipkartReports() {
     }
   }
 
+  function addPayments(list: File[]) {
+    setBundle(null);
+    setError(null);
+    const problems: string[] = [];
+    const good: File[] = [];
+    for (const f of list) {
+      const problem = validateFileBasics(f);
+      if (problem) problems.push(`${f.name}: ${problem}`);
+      else if (!/\.xlsx?$/i.test(f.name)) problems.push(`${f.name}: the payment report must be an Excel file (.xlsx or .xls).`);
+      else good.push(f);
+    }
+    setPaymentError(problems.length > 0 ? problems.join(" ") : null);
+    setPaymentFiles((prev) => [...prev, ...good.filter((g) => !prev.some((p) => p.name === g.name && p.size === g.size))]);
+  }
+
   /** Reads the files and builds every report that is possible, timing the whole thing. */
-  async function runReports(orders: File, returns: File | null, sample: boolean) {
+  async function runReports(orders: File, returns: File | null, sample: boolean, payments: File[] = []) {
     setError(null);
     setBundle(null);
     setBusy(true);
@@ -89,12 +112,29 @@ export function FlipkartReports() {
         }
       }
 
+      let paymentsReport: ReportResult | null = null;
+      let paymentsProblem: string | null = null;
+      let paymentRows = 0;
+      if (payments.length > 0) {
+        try {
+          const read: PaymentFile[] = [];
+          for (const f of payments) read.push(await readFlipkartPaymentFile(f, names));
+          paymentRows = read.reduce((s, f) => s + f.lines.length, 0);
+          paymentsReport = buildFlipkartPaymentReport(read);
+        } catch (e) {
+          paymentsProblem = e instanceof Error ? e.message : "The payment files could not be read.";
+        }
+      }
+
       const ms = performance.now() - started;
       setTab("orders");
       setBundle({
         orders: ordersReport,
         returns: returnsReport,
         ratio: ratioReport,
+        payments: paymentsReport,
+        paymentsProblem,
+        paymentRows,
         returnsProblem,
         ms,
         orderRows: ordersTable.rows.length,
@@ -113,7 +153,7 @@ export function FlipkartReports() {
       setError("Please upload your Flipkart Orders file first.");
       return;
     }
-    void runReports(ordersFile, returnsFile, false);
+    void runReports(ordersFile, returnsFile, false, paymentFiles);
   }
 
   function trySample() {
@@ -130,9 +170,11 @@ export function FlipkartReports() {
       ? bundle.returns
       : tab === "ratio" && bundle.ratio
         ? bundle.ratio
-        : bundle.orders
+        : tab === "payments" && bundle.payments
+          ? bundle.payments
+          : bundle.orders
     : null;
-  const reportCount = bundle ? 1 + (bundle.returns ? 1 : 0) + (bundle.ratio ? 1 : 0) : 0;
+  const reportCount = bundle ? 1 + (bundle.returns ? 1 : 0) + (bundle.ratio ? 1 : 0) + (bundle.payments ? 1 : 0) : 0;
 
   const tabClass = (key: TabKey) =>
     cn(
@@ -197,11 +239,26 @@ export function FlipkartReports() {
                     }}
                   />
                 </div>
+                <div className="mt-6">
+                  <MultiFileSlot
+                    title="Payment files (optional)"
+                    hint="Flipkart payment / settlement reports (.xlsx), one file per month. Add as many months as you like to get Revenue by SKU and by month."
+                    files={paymentFiles}
+                    error={paymentError}
+                    disabled={busy}
+                    onFiles={addPayments}
+                    onRemove={(i) => {
+                      setPaymentFiles((prev) => prev.filter((_, k) => k !== i));
+                      setBundle(null);
+                    }}
+                  />
+                </div>
                 <details className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
                   <summary className="cursor-pointer font-medium text-slate-700">Where do I download these from Flipkart?</summary>
                   <ul className="mt-2 list-disc space-y-1 pl-5 text-xs">
                     <li>Orders: Seller Hub &rarr; Orders &rarr; download the Orders report.</li>
                     <li>Returns: Seller Hub &rarr; Returns &rarr; download the Returns report.</li>
+                    <li>Payments: Seller Hub &rarr; Payments &rarr; download the payment (settlement) report for each month.</li>
                     <li>The file can keep its extra &quot;Help&quot; sheet; it is skipped automatically.</li>
                     <li>Menu names can differ slightly between seller accounts.</li>
                   </ul>
@@ -258,8 +315,8 @@ export function FlipkartReports() {
                 sample={bundle.sample}
                 rowsLabel={
                   bundle.returns
-                    ? `${bundle.orderRows.toLocaleString("en-IN")} order rows + ${bundle.returnRows.toLocaleString("en-IN")} return rows`
-                    : `${bundle.orderRows.toLocaleString("en-IN")} order rows`
+                    ? `${bundle.orderRows.toLocaleString("en-IN")} order rows + ${bundle.returnRows.toLocaleString("en-IN")} return rows${bundle.paymentRows > 0 ? ` + ${bundle.paymentRows.toLocaleString("en-IN")} payment rows` : ""}`
+                    : `${bundle.orderRows.toLocaleString("en-IN")} order rows${bundle.paymentRows > 0 ? ` + ${bundle.paymentRows.toLocaleString("en-IN")} payment rows` : ""}`
                 }
               />
 
@@ -278,12 +335,18 @@ export function FlipkartReports() {
                       SKU Return Ratio
                     </button>
                   )}
+                  {bundle.payments && (
+                    <button type="button" role="tab" aria-selected={tab === "payments"} onClick={() => setTab("payments")} className={tabClass("payments")}>
+                      Payments &amp; Revenue
+                    </button>
+                  )}
                 </div>
                 {!bundle.returns && !bundle.returnsProblem && (
                   <p className="text-xs text-slate-500">Add your Returns file above to also get the Returns report and the SKU Return Ratio.</p>
                 )}
               </div>
 
+              {bundle.paymentsProblem && <ErrorPanel message={`The Payments report could not be built. ${bundle.paymentsProblem}`} />}
               {bundle.returnsProblem && <ErrorPanel message={`The Returns reports could not be built. ${bundle.returnsProblem}`} />}
 
               <ReportView result={activeReport} />

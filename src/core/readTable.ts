@@ -35,7 +35,7 @@ export function validateFileBasics(file: File): string | null {
  * for a sheet that really has thousands of rows, so Excel libraries read only the header.
  * This measures the cells that are really there and fixes the sheet size.
  */
-function fixSheetRange(sheet: XLSX.WorkSheet): void {
+export function fixSheetRange(sheet: XLSX.WorkSheet): void {
   let maxR = -1;
   let maxC = -1;
   for (const key of Object.keys(sheet)) {
