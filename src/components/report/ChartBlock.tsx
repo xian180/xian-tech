@@ -25,8 +25,8 @@ import type { ReportChart } from "@/types";
 import { formatMoney } from "@/core/format";
 import { SLICE_COLORS, TONES, compact, formatValue } from "./theme";
 
-const GRID = "#cbd5e1";
-const AXIS = { fontSize: 11, fill: "#475569" };
+const GRID = "#e2e8f0";
+const AXIS = { fontSize: 11, fill: "#64748b" };
 
 function TooltipBox({ active, payload, label, unit }: { active?: boolean; payload?: any[]; label?: string; unit?: string }) {
   if (!active || !payload || payload.length === 0) return null;
@@ -116,7 +116,7 @@ function DonutBlock({ chart, rows, first }: { chart: ReportChart; rows: Record<s
             outerRadius={narrow ? "72%" : "88%"}
             paddingAngle={isDonut ? 3 : 1}
             cornerRadius={isDonut ? 6 : 0}
-            stroke="#f8fafc"
+            stroke="#fff"
             strokeWidth={2}
           >
             {rows.map((_, i) => (
@@ -128,7 +128,7 @@ function DonutBlock({ chart, rows, first }: { chart: ReportChart; rows: Record<s
               <text x={cx} y={cy} textAnchor="middle" fill="#0f172a" fontSize={22} fontWeight={700}>
                 {compact(total)}
               </text>
-              <text x={cx} y={cy} dy={18} textAnchor="middle" fill="#475569" fontSize={11}>
+              <text x={cx} y={cy} dy={18} textAnchor="middle" fill="#64748b" fontSize={11}>
                 total
               </text>
             </>
@@ -157,6 +157,28 @@ function DonutBlock({ chart, rows, first }: { chart: ReportChart; rows: Record<s
   );
 }
 
+/**
+ * Left-hand names of the horizontal bar chart. The axis is sized to the longest name
+ * (up to a limit), a name that is still too long is cut at the END with "…" (the
+ * start of an SKU is the important part), and the full name is shown on hover.
+ */
+const HBAR_MAX_CHARS = 24;
+const HBAR_CHAR_PX = 6.3;
+function hbarAxisWidth(labels: string[]): number {
+  const longest = labels.reduce((m, l) => Math.max(m, Math.min(l.length, HBAR_MAX_CHARS)), 0);
+  return Math.max(76, Math.round(longest * HBAR_CHAR_PX) + 12);
+}
+function HBarTick({ x, y, payload }: { x?: number; y?: number; payload?: { value: string } }) {
+  const full = String(payload?.value ?? "");
+  const shown = full.length > HBAR_MAX_CHARS ? full.slice(0, HBAR_MAX_CHARS - 1) + "…" : full;
+  return (
+    <text x={x} y={y} dy={4} textAnchor="end" fontSize={11} fill="#334155">
+      <title>{full}</title>
+      {shown}
+    </text>
+  );
+}
+
 function renderChart(chart: ReportChart, uid: string) {
   const tone = TONES[chart.color ?? "indigo"];
   const rows = chart.labels.map((label, i) => {
@@ -179,10 +201,10 @@ function renderChart(chart: ReportChart, uid: string) {
             </defs>
             <CartesianGrid horizontal={false} stroke={GRID} strokeDasharray="3 3" />
             <XAxis type="number" tick={AXIS} tickFormatter={tick} axisLine={false} tickLine={false} />
-            <YAxis type="category" dataKey="name" width={76} tick={{ ...AXIS, fill: "#1e293b" }} axisLine={false} tickLine={false} />
+            <YAxis type="category" dataKey="name" width={hbarAxisWidth(chart.labels.map(String))} tick={<HBarTick />} interval={0} axisLine={false} tickLine={false} />
             <Tooltip cursor={{ fill: tone.soft }} content={<TooltipBox unit={chart.unit} />} />
             <Bar dataKey={first} radius={[0, 8, 8, 0]} fill={`url(#${uid}-h)`} barSize={16}
-              label={{ position: "right", fontSize: 11, fill: "#1e293b", formatter: (v: any) => formatValue(Number(v), chart.unit) }} />
+              label={{ position: "right", fontSize: 11, fill: "#475569", formatter: (v: any) => formatValue(Number(v), chart.unit) }} />
           </BarChart>
         </ResponsiveContainer>
       );
@@ -270,7 +292,7 @@ function renderChart(chart: ReportChart, uid: string) {
           <ScatterChart margin={{ top: 12, right: 16, bottom: 20, left: -4 }}>
             <CartesianGrid stroke={GRID} strokeDasharray="3 3" />
             <XAxis type="number" dataKey="x" name={chart.xLabel ?? "x"} tick={AXIS} axisLine={false} tickLine={false}
-              label={{ value: chart.xLabel, position: "insideBottom", offset: -12, fontSize: 11, fill: "#475569" }} />
+              label={{ value: chart.xLabel, position: "insideBottom", offset: -12, fontSize: 11, fill: "#64748b" }} />
             <YAxis type="number" dataKey="y" name={chart.yLabel ?? "y"} tick={AXIS} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
             <ZAxis type="number" dataKey="z" range={[60, 380]} name="Returned units" />
             <Tooltip
@@ -302,16 +324,16 @@ export function ChartBlock({ chart }: { chart: ReportChart }) {
   const tone = TONES[chart.color ?? "indigo"];
   const empty = chart.type === "scatter" ? (chart.points ?? []).length === 0 : chart.labels.length === 0;
   return (
-    <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-md sm:p-5">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex items-start gap-3">
         <span className="mt-1 h-8 w-1.5 shrink-0 rounded-full" style={{ background: `linear-gradient(${tone.main}, ${tone.light})` }} />
         <div>
           <h3 className="text-sm font-semibold text-slate-900">{chart.title}</h3>
-          {chart.subtitle && <p className="text-xs text-slate-600">{chart.subtitle}</p>}
+          {chart.subtitle && <p className="text-xs text-slate-500">{chart.subtitle}</p>}
         </div>
       </div>
-      <div className="mt-3 h-72 w-full rounded-xl bg-slate-50 p-2 ring-1 ring-slate-200">
-        {empty ? <p className="flex h-full items-center justify-center text-sm text-slate-500">No data to chart.</p> : renderChart(chart, uid)}
+      <div className="mt-3 h-72 w-full">
+        {empty ? <p className="flex h-full items-center justify-center text-sm text-slate-400">No data to chart.</p> : renderChart(chart, uid)}
       </div>
     </div>
   );
