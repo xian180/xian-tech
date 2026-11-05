@@ -12,7 +12,7 @@ export const TONES: Record<ChartColor, { main: string; light: string; soft: stri
 };
 
 /** Distinct colours for pie / donut slices and treemap boxes. */
-export const SLICE_COLORS = ["#4f46e5", "#0ea5e9", "#10b981", "#f59e0b", "#e11d48", "#8b5cf6", "#14b8a6", "#f97316", "#64748b", "#ec4899"];
+export const SLICE_COLORS = ["#4338ca", "#0369a1", "#047857", "#b45309", "#be123c", "#6d28d9", "#0f766e", "#c2410c", "#475569", "#be185d"];
 
 /** 20000 -> "20k", 250000 -> "2.5L", 12000000 -> "1.2Cr" (Indian style). */
 export function compact(n: number): string {

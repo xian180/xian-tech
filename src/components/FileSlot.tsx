@@ -25,7 +25,7 @@ export function FileSlot({ title, hint, file, error, disabled, onFile, onRemove 
   return (
     <div>
       <p className="text-sm font-semibold text-slate-800">{title}</p>
-      <p className="mt-0.5 text-xs text-slate-500">{hint}</p>
+      <p className="mt-0.5 text-xs text-slate-600">{hint}</p>
 
       {file ? (
         <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
@@ -65,7 +65,7 @@ export function FileSlot({ title, hint, file, error, disabled, onFile, onRemove 
           <p className="text-sm font-medium text-slate-700">
             Drag &amp; drop here, or <span className="text-indigo-600">browse</span>
           </p>
-          <p className="mt-1 text-xs text-slate-400">.txt, .tsv, .csv, .xlsx or .xls - up to 25 MB</p>
+          <p className="mt-1 text-xs text-slate-500">.txt, .tsv, .csv, .xlsx or .xls - up to 25 MB</p>
         </div>
       )}
 

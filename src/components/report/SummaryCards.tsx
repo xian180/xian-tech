@@ -72,12 +72,12 @@ export function SummaryCards({ items }: { items: ReportSummaryItem[] }) {
         return (
           <div
             key={item.label}
-            className="relative overflow-hidden rounded-2xl border bg-white p-4 shadow-sm"
+            className="relative overflow-hidden rounded-2xl border-2 bg-white p-4 shadow-md"
             style={{ borderColor: t.ring }}
           >
             <span className="absolute inset-x-0 top-0 h-1" style={{ background: `linear-gradient(90deg, ${t.main}, ${t.light})` }} />
             <div className="flex items-center justify-between gap-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{item.label}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">{item.label}</p>
               <span
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
                 style={{ background: t.soft, color: t.main }}
@@ -88,7 +88,7 @@ export function SummaryCards({ items }: { items: ReportSummaryItem[] }) {
               </span>
             </div>
             <p className="mt-2 break-words text-xl font-bold tracking-tight text-slate-900 sm:text-[1.4rem]">{item.value}</p>
-            {item.helpText && <p className="mt-1 text-xs text-slate-500">{item.helpText}</p>}
+            {item.helpText && <p className="mt-1 text-xs text-slate-600">{item.helpText}</p>}
           </div>
         );
       })}
