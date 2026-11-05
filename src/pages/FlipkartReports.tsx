@@ -11,19 +11,21 @@ import { buildFlipkartOrdersReport } from "@/core/flipkart/ordersReport";
 import { buildFlipkartReturnsReport } from "@/core/flipkart/returnsReport";
 import { buildFlipkartReturnRatio } from "@/core/flipkart/returnRatio";
 import { buildFlipkartPaymentReport, readFlipkartPaymentFile, type PaymentFile } from "@/core/flipkart/payments";
+import { buildFlipkartTaxAdsReport } from "@/core/flipkart/taxAds";
 import { DEFAULT_FLIPKART_OPTIONS, type FlipkartOptions } from "@/core/flipkart/options";
 import { SkuNames } from "@/core/flipkart/sku";
 import { getFlipkartSampleFiles } from "@/core/samples";
 import { cn } from "@/utils/cn";
 import type { ReportResult } from "@/types";
 
-type TabKey = "orders" | "returns" | "ratio" | "payments";
+type TabKey = "orders" | "returns" | "ratio" | "payments" | "taxads";
 
 interface ReportBundle {
   orders: ReportResult;
   returns: ReportResult | null;
   ratio: ReportResult | null;
   payments: ReportResult | null;
+  taxAds: ReportResult | null;
   /** Shown when the Returns file was given but could not be used */
   returnsProblem: string | null;
   /** Shown when the payment files were given but could not be used */
@@ -113,6 +115,7 @@ export function FlipkartReports() {
       }
 
       let paymentsReport: ReportResult | null = null;
+      let taxAdsReport: ReportResult | null = null;
       let paymentsProblem: string | null = null;
       let paymentRows = 0;
       if (payments.length > 0) {
@@ -121,6 +124,7 @@ export function FlipkartReports() {
           for (const f of payments) read.push(await readFlipkartPaymentFile(f, names));
           paymentRows = read.reduce((s, f) => s + f.lines.length, 0);
           paymentsReport = buildFlipkartPaymentReport(read);
+          taxAdsReport = buildFlipkartTaxAdsReport(read);
         } catch (e) {
           paymentsProblem = e instanceof Error ? e.message : "The payment files could not be read.";
         }
@@ -133,6 +137,7 @@ export function FlipkartReports() {
         returns: returnsReport,
         ratio: ratioReport,
         payments: paymentsReport,
+        taxAds: taxAdsReport,
         paymentsProblem,
         paymentRows,
         returnsProblem,
@@ -172,9 +177,11 @@ export function FlipkartReports() {
         ? bundle.ratio
         : tab === "payments" && bundle.payments
           ? bundle.payments
-          : bundle.orders
+          : tab === "taxads" && bundle.taxAds
+            ? bundle.taxAds
+            : bundle.orders
     : null;
-  const reportCount = bundle ? 1 + (bundle.returns ? 1 : 0) + (bundle.ratio ? 1 : 0) + (bundle.payments ? 1 : 0) : 0;
+  const reportCount = bundle ? 1 + (bundle.returns ? 1 : 0) + (bundle.ratio ? 1 : 0) + (bundle.payments ? 1 : 0) + (bundle.taxAds ? 1 : 0) : 0;
 
   const tabClass = (key: TabKey) =>
     cn(
@@ -242,7 +249,7 @@ export function FlipkartReports() {
                 <div className="mt-6">
                   <MultiFileSlot
                     title="Payment files (optional)"
-                    hint="Flipkart payment / settlement reports (.xlsx), one file per month. Add as many months as you like to get Revenue by SKU and by month."
+                    hint="Flipkart payment / settlement reports (.xlsx), one file per month. Add as many months as you like to get Revenue by SKU and by month, plus the Tax (TCS, TDS, GST) and Ads summary."
                     files={paymentFiles}
                     error={paymentError}
                     disabled={busy}
@@ -338,6 +345,11 @@ export function FlipkartReports() {
                   {bundle.payments && (
                     <button type="button" role="tab" aria-selected={tab === "payments"} onClick={() => setTab("payments")} className={tabClass("payments")}>
                       Payments &amp; Revenue
+                    </button>
+                  )}
+                  {bundle.taxAds && (
+                    <button type="button" role="tab" aria-selected={tab === "taxads"} onClick={() => setTab("taxads")} className={tabClass("taxads")}>
+                      Tax &amp; Ads Summary
                     </button>
                   )}
                 </div>

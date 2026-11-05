@@ -38,6 +38,19 @@ export interface PaymentFile {
   /** Flipkart's own totals from the Summary sheet (null when not found) */
   summarySale: number | null;
   summaryRefund: number | null;
+  /** Taxes deducted on the order lines (negative numbers, as Flipkart writes them) */
+  tax: { tcs: number; tds: number; gstOnFees: number };
+  /** The "Ads" sheet: wallet movements for advertisement (null when the file has no Ads sheet) */
+  ads: { topup: number; redeem: number; refund: number; gst: number; rows: number } | null;
+  /** Flipkart's own tax / ads totals from the Summary sheet (null when not found) */
+  summaryTax: {
+    tcs: number | null;
+    tds: number | null;
+    gstOnFees: number | null;
+    gstOnAds: number | null;
+    adsFees: number | null;
+    credit: number | null;
+  };
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -105,8 +118,14 @@ export async function readFlipkartPaymentFile(file: File, names: SkuNames): Prom
   const at = (k: keyof typeof need) => col.get(need[k])!;
 
   const lines: PaymentLine[] = [];
+  const tax = { tcs: 0, tds: 0, gstOnFees: 0 };
+  const taxCol = { tcs: col.get("tcs (rs.)"), tds: col.get("tds (rs.)"), gstOnFees: col.get("gst on mp fees (rs.)") };
+  const cellNum = (row: unknown[], i: number | undefined) => (i === undefined ? 0 : parseNumber(String(row[i] ?? "")));
   for (const row of aoa.slice(headerAt + 1)) {
     if (String(row[at("id")] ?? "").trim() === "") continue; // blank or total line
+    tax.tcs += cellNum(row, taxCol.tcs);
+    tax.tds += cellNum(row, taxCol.tds);
+    tax.gstOnFees += cellNum(row, taxCol.gstOnFees);
     lines.push({
       sku: names.canon(String(row[at("sku")] ?? "")),
       sale: parseNumber(String(row[at("sale")] ?? "")),
@@ -129,8 +148,55 @@ export async function readFlipkartPaymentFile(file: File, names: SkuNames): Prom
     summarySale = numberBeside(s, "sales amount");
     summaryRefund = numberBeside(s, "returns reversal");
   }
+  const summaryTax = { tcs: null, tds: null, gstOnFees: null, gstOnAds: null, adsFees: null, credit: null } as PaymentFile["summaryTax"];
+  if (summaryName) {
+    const s = toAoa(summaryName);
+    summaryTax.tcs = numberBeside(s, "tcs");
+    summaryTax.tds = numberBeside(s, "tds");
+    summaryTax.gstOnFees = numberBeside(s, "gst on marketplace fees");
+    summaryTax.gstOnAds = numberBeside(s, "gst on ads fees");
+    summaryTax.adsFees = numberBeside(s, "ads fees");
+    summaryTax.credit = numberBeside(s, "input gst + tcs credits (b)");
+  }
+
+  let ads: PaymentFile["ads"] = null;
+  const adsName = sheetNamed("ads");
+  if (adsName) {
+    const a = toAoa(adsName);
+    const hAt = a.slice(0, 8).findIndex((r) => r.some((c) => norm(c) === "neft id"));
+    if (hAt >= 0) {
+      const ac = new Map<string, number>();
+      a[hAt].forEach((h, i) => {
+        const k = norm(h);
+        if (k && !ac.has(k)) ac.set(k, i);
+      });
+      const typeAt = ac.get("type");
+      const sum = { topup: 0, redeem: 0, refund: 0, gst: 0, rows: 0 };
+      for (const row of a.slice(hAt + 1)) {
+        if (typeAt === undefined || String(row[typeAt] ?? "").trim() === "") continue;
+        sum.rows++;
+        // redeem and its reversal belong together: the sheet shows them in two columns
+        sum.redeem += cellNum(row, ac.get("wallet redeem (rs.)")) + cellNum(row, ac.get("wallet redeem reversal (rs.)"));
+        sum.topup += cellNum(row, ac.get("wallet topup (rs.)"));
+        sum.refund += cellNum(row, ac.get("wallet refund (rs.)"));
+        sum.gst += cellNum(row, ac.get("gst on ads fees (rs.)"));
+      }
+      ads = sum;
+    }
+  }
+
   const mk = period ? /(\d{4})-(\d{2})-\d{2}/.exec(period) : null;
-  return { fileName: file.name, period, monthKey: mk ? `${mk[1]}-${mk[2]}` : null, lines, summarySale, summaryRefund };
+  return {
+    fileName: file.name,
+    period,
+    monthKey: mk ? `${mk[1]}-${mk[2]}` : null,
+    lines,
+    summarySale,
+    summaryRefund,
+    tax,
+    ads,
+    summaryTax,
+  };
 }
 
 interface Bucket {
@@ -148,8 +214,8 @@ function add(b: Bucket, l: PaymentLine) {
   if (l.refund < 0) b.returned += l.qty;
 }
 
-export function buildFlipkartPaymentReport(files: PaymentFile[]): ReportResult {
-  // The same month uploaded twice must not be counted twice.
+/** The same month uploaded twice must not be counted twice. */
+export function dedupePaymentFiles(files: PaymentFile[]): { used: PaymentFile[]; skipped: string[] } {
   const used: PaymentFile[] = [];
   const skipped: string[] = [];
   const seen = new Map<string, string>();
@@ -163,6 +229,18 @@ export function buildFlipkartPaymentReport(files: PaymentFile[]): ReportResult {
     seen.set(key, f.fileName);
     used.push(f);
   }
+  return { used, skipped };
+}
+
+export function monthKeyOf(f: PaymentFile, idx: number): string {
+  return f.monthKey ?? `~${String(idx).padStart(3, "0")}`;
+}
+export function monthNameOf(f: PaymentFile): string {
+  return f.monthKey ? monthLabel(f.monthKey) : f.fileName;
+}
+
+export function buildFlipkartPaymentReport(files: PaymentFile[]): ReportResult {
+  const { used, skipped } = dedupePaymentFiles(files);
 
   const bySku = new Map<string, Bucket>();
   const byMonth = new Map<string, { label: string; b: Bucket }>();
