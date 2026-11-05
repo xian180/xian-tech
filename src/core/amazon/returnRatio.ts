@@ -97,13 +97,6 @@ export function buildReturnRatio(
     );
   }
 
-  const bands = [
-    { label: "Below 10%", count: rows.filter((r) => r.ratio < 0.1).length },
-    { label: "10% to 25%", count: rows.filter((r) => r.ratio >= 0.1 && r.ratio < 0.25).length },
-    { label: "25% to 50%", count: rows.filter((r) => r.ratio >= 0.25 && r.ratio < 0.5).length },
-    { label: "50% and above", count: rows.filter((r) => r.ratio >= 0.5).length },
-  ].filter((b) => b.count > 0);
-
   const top10Ratio = rows.slice(0, 10);
   const charts: ReportChart[] = [
     {
@@ -125,27 +118,6 @@ export function buildReturnRatio(
         { name: "Returns", data: byReturns.map((r) => r.returned) },
       ],
       color: "indigo",
-    },
-    {
-      type: "donut",
-      title: "SKUs by Return Ratio Band",
-      subtitle: "How many SKUs fall in each ratio range",
-      labels: bands.map((b) => b.label),
-      series: [{ name: "SKUs", data: bands.map((b) => b.count) }],
-    },
-    {
-      type: "scatter",
-      title: "Orders vs Return Ratio",
-      subtitle: "Each dot is one SKU. Bigger dot = more returned units",
-      labels: [],
-      series: [],
-      points: rows.map((r) => ({ name: r.sku, x: r.orderUnits, y: round2(r.ratio * 100), z: r.returned })),
-      xLabel: "Units sold",
-      yLabel: "Return ratio (%)",
-      unit: "%",
-      referenceY: round2(overall * 100),
-      referenceLabel: "Overall",
-      color: "violet",
     },
   ];
 
