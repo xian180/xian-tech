@@ -16,11 +16,11 @@ function tableGridClass(count: number): string {
 export function ReportView({ result }: { result: ReportResult }) {
   return (
     <div id="report-output" className="@container space-y-6">
-      <div className="flex flex-col gap-4 rounded-2xl bg-gradient-to-r from-indigo-700 via-indigo-700 to-violet-700 p-5 text-white shadow-md sm:flex-row sm:items-center sm:justify-between sm:p-6">
+      <div className="flex flex-col gap-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-600 to-violet-600 p-5 text-white shadow-md sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-indigo-100">Xian Tech Report</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-indigo-200">Xian Tech Report</p>
           <h2 className="mt-1 text-xl font-bold sm:text-2xl">{result.title}</h2>
-          <p className="mt-0.5 text-xs text-indigo-100">Generated {new Date(result.generatedAt).toLocaleString("en-IN")}</p>
+          <p className="mt-0.5 text-xs text-indigo-200">Generated {new Date(result.generatedAt).toLocaleString("en-IN")}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -47,7 +47,7 @@ export function ReportView({ result }: { result: ReportResult }) {
       <SummaryCards items={result.summary} />
 
       {result.insights.length > 0 && (
-        <div className="rounded-2xl border border-slate-300 bg-white p-5 shadow-md">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-2">
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
@@ -58,7 +58,7 @@ export function ReportView({ result }: { result: ReportResult }) {
           </div>
           <ul className="mt-3 grid gap-2 sm:grid-cols-2">
             {result.insights.map((insight, i) => (
-              <li key={i} className="flex gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800">
+              <li key={i} className="flex gap-2.5 rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
                 <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" />
                 {insight}
               </li>
@@ -76,7 +76,12 @@ export function ReportView({ result }: { result: ReportResult }) {
       )}
 
       {result.tables.length > 0 && (
-        <div className={`grid items-start gap-5 ${tableGridClass(result.tables.length)}`}>
+        <div
+          className={`grid items-start gap-5 ${
+            // Tables with many columns (money breakdowns) need the full width; simple 2-column tables sit side by side.
+            result.tables.some((t) => t.columns.length > 3) ? "grid-cols-1" : tableGridClass(result.tables.length)
+          }`}
+        >
           {result.tables.map((table, i) => (
             <DataTable key={i} table={table} reportName={result.title} />
           ))}
