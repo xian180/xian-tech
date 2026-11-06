@@ -145,9 +145,14 @@ export function FlipkartReports() {
   const [dateError, setDateError] = useState<string | null>(null);
 
   const resultRef = useRef<HTMLDivElement>(null);
+  /** Scroll to the reports only after "Generate" (not when the sub-filter or dates change) */
+  const scrollToResult = useRef(false);
 
   useEffect(() => {
-    if (bundle) resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (bundle && scrollToResult.current) {
+      scrollToResult.current = false;
+      resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   }, [bundle]);
 
   function pick(kind: "orders" | "returns", file: File) {
@@ -233,6 +238,7 @@ export function FlipkartReports() {
       const ms = performance.now() - started;
       setInputs(read);
       setTab("orders");
+      scrollToResult.current = true;
       setBundle({ ...full, ms });
     } catch (e) {
       setError(errorText(e, "Something went wrong while reading your files."));
