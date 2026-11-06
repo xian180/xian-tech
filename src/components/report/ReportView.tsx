@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { ReportResult } from "@/types";
 import { SummaryCards } from "./SummaryCards";
 import { DataTable } from "./DataTable";
@@ -13,7 +14,13 @@ function tableGridClass(count: number): string {
   return "grid-cols-1 @3xl:grid-cols-2 @5xl:grid-cols-4";
 }
 
-export function ReportView({ result }: { result: ReportResult }) {
+interface ReportViewProps {
+  result: ReportResult;
+  /** Shown between Key Insights and the graphs (used for the sub-filter bar) */
+  afterInsights?: ReactNode;
+}
+
+export function ReportView({ result, afterInsights }: ReportViewProps) {
   return (
     <div id="report-output" className="@container space-y-6">
       <div className="flex flex-col gap-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-600 to-violet-600 p-5 text-white shadow-md sm:flex-row sm:items-center sm:justify-between sm:p-6">
@@ -66,6 +73,8 @@ export function ReportView({ result }: { result: ReportResult }) {
           </ul>
         </div>
       )}
+
+      {afterInsights}
 
       {result.charts.length > 0 && (
         <div className="grid gap-5 @3xl:grid-cols-2">

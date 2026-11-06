@@ -2,9 +2,9 @@
 export interface FlipkartOptions {
   /**
    * Leave out orders whose status is CANCELLED.
-   * Default: false. How to treat cancelled orders is still a pending decision
-   * for all marketplaces, so for now Flipkart counts every status (this is
-   * exactly what the manual Excel does).
+   * Always false now: the page switch was removed. The Orders report uses the
+   * sub-filter (All / Without return / Without return and cancellation) instead.
+   * The field stays so the other Flipkart reports keep compiling.
    */
   excludeCancelled: boolean;
   /** Leave out returns whose return_status is "cancelled". Default: false */

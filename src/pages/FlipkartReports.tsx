@@ -8,9 +8,11 @@ import { ReportView } from "@/components/report/ReportView";
 import { LoadingPanel, ErrorPanel } from "@/components/StatusPanels";
 import { readTableFile, validateFileBasics, type ParsedTable } from "@/core/readTable";
 import { DateRangeBar } from "@/components/DateRangeBar";
+import { SubFilterBar } from "@/components/SubFilterBar";
+import { EMPTY_GROUP_UNITS, type GroupUnits, type SubFilterKey } from "@/core/subFilter";
 import { NO_DATE_FILTER, type DateFilter } from "@/core/dateFilter";
 import { filterFlipkartOrders, filterFlipkartReturns, filterPaymentFiles, flipkartCoverage } from "@/core/flipkart/dateFilter";
-import { buildFlipkartOrdersReport } from "@/core/flipkart/ordersReport";
+import { buildFlipkartOrdersView } from "@/core/flipkart/ordersReport";
 import { buildFlipkartReturnsReport } from "@/core/flipkart/returnsReport";
 import { buildFlipkartReturnRatio } from "@/core/flipkart/returnRatio";
 import { buildFlipkartPaymentReport, readFlipkartPaymentFile, type PaymentFile } from "@/core/flipkart/payments";
@@ -25,6 +27,12 @@ type TabKey = "orders" | "returns" | "ratio" | "payments" | "taxads";
 
 interface ReportBundle {
   orders: ReportResult;
+  /** Orders (already cut to the chosen dates), kept so the sub-filter can rebuild the Orders report alone */
+  ordersTable: ParsedTable;
+  /** Sub-filter in use, the ones that have data, and the units in each group */
+  subFilter: SubFilterKey;
+  subFilters: SubFilterKey[];
+  groupUnits: GroupUnits;
   returns: ReportResult | null;
   ratio: ReportResult | null;
   payments: ReportResult | null;
@@ -57,10 +65,16 @@ interface Inputs {
 const errorText = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
 
 /** Builds every report that is possible from the read files, for the chosen dates. */
-function buildBundle(inputs: Inputs, options: FlipkartOptions, filter: DateFilter, ms: number): ReportBundle {
+function buildBundle(
+  inputs: Inputs,
+  options: FlipkartOptions,
+  filter: DateFilter,
+  ms: number,
+  subFilter: SubFilterKey = "all"
+): ReportBundle {
   const { names } = inputs;
   const ordersTable = filterFlipkartOrders(inputs.ordersTable, filter); // nothing left = message for the person
-  const ordersReport = buildFlipkartOrdersReport(ordersTable, options, names);
+  const ordersView = buildFlipkartOrdersView(ordersTable, options, names, subFilter);
 
   let returnsReport: ReportResult | null = null;
   let ratioReport: ReportResult | null = null;
@@ -95,7 +109,11 @@ function buildBundle(inputs: Inputs, options: FlipkartOptions, filter: DateFilte
   }
 
   return {
-    orders: ordersReport,
+    orders: ordersView.report,
+    ordersTable,
+    subFilter: ordersView.subFilter,
+    subFilters: ordersView.available,
+    groupUnits: ordersView.groupUnits,
     returns: returnsReport,
     ratio: ratioReport,
     payments: paymentsReport,
@@ -229,13 +247,21 @@ export function FlipkartReports() {
     setDateError(null);
     const started = performance.now();
     try {
-      const rebuilt = buildBundle(inputs, options, next, 0);
+      // The chosen sub-filter stays if the new dates still have data for it, otherwise it goes back to All
+      const rebuilt = buildBundle(inputs, options, next, 0, bundle?.subFilter ?? "all");
       setDateFilter(next);
       setBundle({ ...rebuilt, ms: performance.now() - started });
     } catch (e) {
       // Nothing found for these days: keep the reports that are on screen and say so
       setDateError(errorText(e, "These dates could not be applied."));
     }
+  }
+
+  /** Rebuilds only the Orders report for the chosen sub-filter (no file is read again). */
+  function changeSubFilter(next: SubFilterKey) {
+    if (!bundle || !inputs) return;
+    const view = buildFlipkartOrdersView(bundle.ordersTable, options, inputs.names, next);
+    setBundle({ ...bundle, orders: view.report, subFilter: view.subFilter });
   }
 
   function generate() {
@@ -359,15 +385,8 @@ export function FlipkartReports() {
 
               <section>
                 <details>
-                  <summary className="cursor-pointer text-sm font-semibold text-slate-800">Options (how orders are counted)</summary>
+                  <summary className="cursor-pointer text-sm font-semibold text-slate-800">Options (how returns are counted)</summary>
                   <div className="mt-3 grid gap-3">
-                    <OptionRow
-                      checked={options.excludeCancelled}
-                      disabled={busy}
-                      onChange={(v) => setOptions({ ...options, excludeCancelled: v })}
-                      title="Leave out cancelled orders"
-                      help="Off by default, so cancelled orders are counted in units (same as the manual Excel)."
-                    />
                     <OptionRow
                       checked={options.excludeCancelledReturns}
                       disabled={busy}
@@ -457,7 +476,19 @@ export function FlipkartReports() {
               {bundle.paymentsProblem && <ErrorPanel message={`The Payments report could not be built. ${bundle.paymentsProblem}`} />}
               {bundle.returnsProblem && <ErrorPanel message={`The Returns reports could not be built. ${bundle.returnsProblem}`} />}
 
-              <ReportView result={activeReport} />
+              <ReportView
+                result={activeReport}
+                afterInsights={
+                  tab === "orders" ? (
+                    <SubFilterBar
+                      available={bundle.subFilters}
+                      value={bundle.subFilter}
+                      units={bundle.groupUnits ?? EMPTY_GROUP_UNITS}
+                      onChange={changeSubFilter}
+                    />
+                  ) : undefined
+                }
+              />
             </div>
           )}
         </div>
