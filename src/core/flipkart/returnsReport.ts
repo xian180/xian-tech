@@ -7,6 +7,14 @@
 import type { ReportResult } from "../../types";
 import type { ParsedTable } from "../readTable";
 import { addTo, num, round2, sortDesc, topWithOthers } from "../amazon/util";
+import {
+  applyReturnFilter,
+  buildReturnFilterInfo,
+  NO_RETURN_FILTER,
+  returnFilterInsight,
+  titleWithReturnFilter,
+  type ReturnFilterState,
+} from "../returnFilter";
 import { loadFlipkartReturns } from "./load";
 import { DEFAULT_FLIPKART_OPTIONS, type FlipkartOptions } from "./options";
 import { SkuNames } from "./sku";
@@ -14,9 +22,13 @@ import { SkuNames } from "./sku";
 export function buildFlipkartReturnsReport(
   returns: ParsedTable,
   options: FlipkartOptions = DEFAULT_FLIPKART_OPTIONS,
-  names: SkuNames = new SkuNames()
+  names: SkuNames = new SkuNames(),
+  filter: ReturnFilterState = NO_RETURN_FILTER
 ): ReportResult {
-  const { lines, stats } = loadFlipkartReturns(returns, options, names);
+  const { lines: allLines, stats } = loadFlipkartReturns(returns, options, names);
+  // Sub-filter: return type, then the nested Return status (hidden while its column is not set up)
+  const info = buildReturnFilterInfo(allLines, filter);
+  const lines = applyReturnFilter(allLines, info.state);
 
   const bySku = new Map<string, number>();
   const byType = new Map<string, number>();
@@ -38,6 +50,8 @@ export function buildFlipkartReturnsReport(
   const pct = (part: number) => (totalUnits > 0 ? `${round2((part / totalUnits) * 100)}%` : "0%");
 
   const insights: string[] = [];
+  const filterNote = returnFilterInsight(info);
+  if (filterNote) insights.push(filterNote);
   const period = stats.dates.label();
   if (period) insights.push(`Returns in this file were approved between ${period}.`);
   if (skuSorted[0]) insights.push(`Most returned SKU: ${skuSorted[0][0]} (${num(skuSorted[0][1])} units).`);
@@ -64,7 +78,7 @@ export function buildFlipkartReturnsReport(
   };
 
   return {
-    title: "Flipkart Returns Report",
+    title: titleWithReturnFilter("Flipkart Returns Report", info),
     generatedAt: new Date().toISOString(),
     summary: [
       { label: "Units Returned", value: num(totalUnits), helpText: `${num(stats.countedRows)} return lines` },

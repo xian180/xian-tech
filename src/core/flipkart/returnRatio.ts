@@ -9,6 +9,14 @@
 import type { ReportChart, ReportResult } from "../../types";
 import type { ParsedTable } from "../readTable";
 import { addTo, num, round2 } from "../amazon/util";
+import {
+  applyReturnFilter,
+  buildReturnFilterInfo,
+  NO_RETURN_FILTER,
+  returnFilterInsight,
+  titleWithReturnFilter,
+  type ReturnFilterState,
+} from "../returnFilter";
 import { loadFlipkartOrders, loadFlipkartReturns } from "./load";
 import { DEFAULT_FLIPKART_OPTIONS, type FlipkartOptions } from "./options";
 import { SkuNames } from "./sku";
@@ -17,10 +25,14 @@ export function buildFlipkartReturnRatio(
   orders: ParsedTable,
   returns: ParsedTable,
   options: FlipkartOptions = DEFAULT_FLIPKART_OPTIONS,
-  names: SkuNames = new SkuNames()
+  names: SkuNames = new SkuNames(),
+  filter: ReturnFilterState = NO_RETURN_FILTER
 ): ReportResult {
   const { lines, stats } = loadFlipkartOrders(orders, options, names);
-  const { lines: returnLines, stats: returnStats } = loadFlipkartReturns(returns, options, names);
+  const { lines: allReturnLines, stats: returnStats } = loadFlipkartReturns(returns, options, names);
+  // Sub-filter (return type / return status) decides which returns are counted; Orders stay the same
+  const info = buildReturnFilterInfo(allReturnLines, filter);
+  const returnLines = applyReturnFilter(allReturnLines, info.state);
 
   const unitsBySku = new Map<string, number>();
   let totalUnits = 0;
@@ -59,6 +71,8 @@ export function buildFlipkartReturnRatio(
   const pct = (r: number) => `${round2(r * 100)}%`;
 
   const insights: string[] = [];
+  const filterNote = returnFilterInsight(info);
+  if (filterNote) insights.push(filterNote);
   const orderPeriod = stats.dates.label();
   const returnPeriod = returnStats.dates.label();
   if (orderPeriod) insights.push(`Orders file period: ${orderPeriod}.`);
@@ -123,7 +137,7 @@ export function buildFlipkartReturnRatio(
   ];
 
   return {
-    title: "Flipkart SKU Return Ratio Report",
+    title: titleWithReturnFilter("Flipkart SKU Return Ratio Report", info),
     generatedAt: new Date().toISOString(),
     summary: [
       { label: "Units Sold", value: num(totalUnits) },

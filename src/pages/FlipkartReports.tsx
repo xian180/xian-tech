@@ -9,11 +9,19 @@ import { LoadingPanel, ErrorPanel } from "@/components/StatusPanels";
 import { readTableFile, validateFileBasics, type ParsedTable } from "@/core/readTable";
 import { DateRangeBar } from "@/components/DateRangeBar";
 import { SubFilterBar } from "@/components/SubFilterBar";
+import { ReturnFilterBar } from "@/components/ReturnFilterBar";
+import {
+  buildReturnFilterInfo,
+  NO_RETURN_FILTER,
+  type ReturnFilterInfo,
+  type ReturnFilterState,
+} from "@/core/returnFilter";
 import { EMPTY_GROUP_UNITS, type GroupUnits, type SubFilterKey } from "@/core/subFilter";
 import { NO_DATE_FILTER, type DateFilter } from "@/core/dateFilter";
 import { filterFlipkartOrders, filterFlipkartReturns, filterPaymentFiles, flipkartCoverage } from "@/core/flipkart/dateFilter";
 import { buildFlipkartOrdersView } from "@/core/flipkart/ordersReport";
 import { buildFlipkartReturnsReport } from "@/core/flipkart/returnsReport";
+import { loadFlipkartReturns } from "@/core/flipkart/load";
 import { buildFlipkartReturnRatio } from "@/core/flipkart/returnRatio";
 import { buildFlipkartPaymentReport, readFlipkartPaymentFile, type PaymentFile } from "@/core/flipkart/payments";
 import { buildFlipkartTaxAdsReport } from "@/core/flipkart/taxAds";
@@ -33,6 +41,11 @@ interface ReportBundle {
   subFilter: SubFilterKey;
   subFilters: SubFilterKey[];
   groupUnits: GroupUnits;
+  /** Returns (already cut to the chosen dates), kept so the return sub-filter can rebuild the Returns reports alone */
+  returnsTable: ParsedTable | null;
+  /** Return sub-filter in use (return type + nested return status) and its buttons */
+  returnFilter: ReturnFilterState;
+  returnFilterInfo: ReturnFilterInfo | null;
   returns: ReportResult | null;
   ratio: ReportResult | null;
   payments: ReportResult | null;
@@ -70,7 +83,8 @@ function buildBundle(
   options: FlipkartOptions,
   filter: DateFilter,
   ms: number,
-  subFilter: SubFilterKey = "all"
+  subFilter: SubFilterKey = "all",
+  returnFilter: ReturnFilterState = NO_RETURN_FILTER
 ): ReportBundle {
   const { names } = inputs;
   const ordersTable = filterFlipkartOrders(inputs.ordersTable, filter); // nothing left = message for the person
@@ -80,15 +94,21 @@ function buildBundle(
   let ratioReport: ReportResult | null = null;
   let returnsProblem: string | null = inputs.returnsReadProblem;
   let returnRows = 0;
+  let returnsTableUsed: ParsedTable | null = null;
+  let returnFilterInfo: ReturnFilterInfo | null = null;
   if (inputs.returnsTable && !returnsProblem) {
     try {
       const returnsTable = filterFlipkartReturns(inputs.returnsTable, filter);
       returnRows = returnsTable.rows.length;
-      returnsReport = buildFlipkartReturnsReport(returnsTable, options, names);
-      ratioReport = buildFlipkartReturnRatio(ordersTable, returnsTable, options, names);
+      returnsTableUsed = returnsTable;
+      returnFilterInfo = buildReturnFilterInfo(loadFlipkartReturns(returnsTable, options, names).lines, returnFilter);
+      returnsReport = buildFlipkartReturnsReport(returnsTable, options, names, returnFilterInfo.state);
+      ratioReport = buildFlipkartReturnRatio(ordersTable, returnsTable, options, names, returnFilterInfo.state);
     } catch (e) {
       returnsReport = null;
       ratioReport = null;
+      returnFilterInfo = null;
+      returnsTableUsed = null;
       returnsProblem = errorText(e, "The Returns file could not be read.");
     }
   }
@@ -114,6 +134,9 @@ function buildBundle(
     subFilter: ordersView.subFilter,
     subFilters: ordersView.available,
     groupUnits: ordersView.groupUnits,
+    returnsTable: returnsTableUsed,
+    returnFilter: returnFilterInfo?.state ?? NO_RETURN_FILTER,
+    returnFilterInfo,
     returns: returnsReport,
     ratio: ratioReport,
     payments: paymentsReport,
@@ -254,7 +277,7 @@ export function FlipkartReports() {
     const started = performance.now();
     try {
       // The chosen sub-filter stays if the new dates still have data for it, otherwise it goes back to All
-      const rebuilt = buildBundle(inputs, options, next, 0, bundle?.subFilter ?? "all");
+      const rebuilt = buildBundle(inputs, options, next, 0, bundle?.subFilter ?? "all", bundle?.returnFilter ?? NO_RETURN_FILTER);
       setDateFilter(next);
       setBundle({ ...rebuilt, ms: performance.now() - started });
     } catch (e) {
@@ -268,6 +291,19 @@ export function FlipkartReports() {
     if (!bundle || !inputs) return;
     const view = buildFlipkartOrdersView(bundle.ordersTable, options, inputs.names, next);
     setBundle({ ...bundle, orders: view.report, subFilter: view.subFilter });
+  }
+
+  /** Rebuilds only the Returns report and the SKU Return Ratio for the chosen return sub-filter. */
+  function changeReturnFilter(next: ReturnFilterState) {
+    if (!bundle || !inputs || !bundle.returnsTable) return;
+    const info = buildReturnFilterInfo(loadFlipkartReturns(bundle.returnsTable, options, inputs.names).lines, next);
+    setBundle({
+      ...bundle,
+      returns: buildFlipkartReturnsReport(bundle.returnsTable, options, inputs.names, info.state),
+      ratio: buildFlipkartReturnRatio(bundle.ordersTable, bundle.returnsTable, options, inputs.names, info.state),
+      returnFilter: info.state,
+      returnFilterInfo: info,
+    });
   }
 
   function generate() {
@@ -492,6 +528,8 @@ export function FlipkartReports() {
                       units={bundle.groupUnits ?? EMPTY_GROUP_UNITS}
                       onChange={changeSubFilter}
                     />
+                  ) : (tab === "returns" || tab === "ratio") && bundle.returnFilterInfo ? (
+                    <ReturnFilterBar info={bundle.returnFilterInfo} onChange={changeReturnFilter} />
                   ) : undefined
                 }
               />

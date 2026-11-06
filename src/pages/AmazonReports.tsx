@@ -10,16 +10,33 @@ import { NO_DATE_FILTER, type DateFilter } from "@/core/dateFilter";
 import { amazonCoverage, filterAmazonOrders, filterAmazonReturns } from "@/core/amazon/dateFilter";
 import { buildSalesReport } from "@/core/amazon/salesReport";
 import { buildReturnRatio } from "@/core/amazon/returnRatio";
+import { buildAmazonReturnsReport } from "@/core/amazon/returnsReport";
+import { loadAmazonReturns } from "@/core/amazon/returns";
+import { ReturnFilterBar } from "@/components/ReturnFilterBar";
+import {
+  buildReturnFilterInfo,
+  NO_RETURN_FILTER,
+  type ReturnFilterInfo,
+  type ReturnFilterState,
+} from "@/core/returnFilter";
 import { DEFAULT_OPTIONS, type AmazonOptions } from "@/core/amazon/options";
 import { getSampleFiles } from "@/core/samples";
 import { cn } from "@/utils/cn";
 import type { ReportResult } from "@/types";
 
-type TabKey = "sales" | "returns";
+type TabKey = "sales" | "returns" | "ratio";
 
 interface ReportBundle {
   sales: ReportResult;
+  /** Returns report */
   returns: ReportResult | null;
+  /** SKU Return Ratio */
+  ratio: ReportResult | null;
+  /** Returns (already cut to the chosen dates), kept so the return sub-filter can rebuild the Returns reports alone */
+  returnsTable: ParsedTable | null;
+  /** Return sub-filter in use (return type + nested return status) and its buttons */
+  returnFilter: ReturnFilterState;
+  returnFilterInfo: ReturnFilterInfo | null;
   /** Shown when the Returns file was given but could not be used */
   returnsProblem: string | null;
   /** Time taken to read the files and build every report, in milliseconds */
@@ -56,7 +73,7 @@ function formatSeconds(ms: number): string {
 }
 
 function SpeedBanner({ bundle }: { bundle: ReportBundle }) {
-  const count = bundle.returns ? 2 : 1;
+  const count = 1 + (bundle.returns ? 1 : 0) + (bundle.ratio ? 1 : 0);
   const rows = bundle.returns
     ? `${bundle.orderRows.toLocaleString("en-IN")} order rows + ${bundle.returnRows.toLocaleString("en-IN")} return rows`
     : `${bundle.orderRows.toLocaleString("en-IN")} order rows`;
@@ -98,23 +115,51 @@ interface Inputs {
 const errorText = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
 
 /** Builds every report that is possible from the read files, for the chosen dates. */
-function buildBundle(inputs: Inputs, options: AmazonOptions, filter: DateFilter, ms: number): ReportBundle {
+function buildBundle(
+  inputs: Inputs,
+  options: AmazonOptions,
+  filter: DateFilter,
+  ms: number,
+  returnFilter: ReturnFilterState = NO_RETURN_FILTER
+): ReportBundle {
   const ordersTable = filterAmazonOrders(inputs.ordersTable, filter); // nothing left = message for the person
   const sales = buildSalesReport(ordersTable, options);
 
   let returnsReport: ReportResult | null = null;
+  let ratioReport: ReportResult | null = null;
+  let returnsTableUsed: ParsedTable | null = null;
+  let returnFilterInfo: ReturnFilterInfo | null = null;
   let returnsProblem: string | null = inputs.returnsReadProblem;
   let returnRows = 0;
   if (inputs.returnsTable && !returnsProblem) {
     try {
       const returnsTable = filterAmazonReturns(inputs.returnsTable, filter);
       returnRows = returnsTable.rows.length;
-      returnsReport = buildReturnRatio(ordersTable, returnsTable, options);
+      returnsTableUsed = returnsTable;
+      returnFilterInfo = buildReturnFilterInfo(loadAmazonReturns(returnsTable, options).lines, returnFilter);
+      returnsReport = buildAmazonReturnsReport(returnsTable, options, returnFilterInfo.state);
+      ratioReport = buildReturnRatio(ordersTable, returnsTable, options, returnFilterInfo.state);
     } catch (e) {
+      returnsReport = null;
+      ratioReport = null;
+      returnsTableUsed = null;
+      returnFilterInfo = null;
       returnsProblem = errorText(e, "The Returns file could not be read.");
     }
   }
-  return { sales, returns: returnsReport, returnsProblem, ms, orderRows: ordersTable.rows.length, returnRows, sample: inputs.sample };
+  return {
+    sales,
+    returns: returnsReport,
+    ratio: ratioReport,
+    returnsTable: returnsTableUsed,
+    returnFilter: returnFilterInfo?.state ?? NO_RETURN_FILTER,
+    returnFilterInfo,
+    returnsProblem,
+    ms,
+    orderRows: ordersTable.rows.length,
+    returnRows,
+    sample: inputs.sample,
+  };
 }
 
 export function AmazonReports() {
@@ -132,9 +177,14 @@ export function AmazonReports() {
   const [dateError, setDateError] = useState<string | null>(null);
 
   const resultRef = useRef<HTMLDivElement>(null);
+  /** Scroll to the reports only after "Generate" (not when the sub-filter or dates change) */
+  const scrollToResult = useRef(false);
 
   useEffect(() => {
-    if (bundle) resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (bundle && scrollToResult.current) {
+      scrollToResult.current = false;
+      resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   }, [bundle]);
 
   function pick(kind: "orders" | "returns", file: File) {
@@ -179,6 +229,7 @@ export function AmazonReports() {
       const built = buildBundle(read, options, NO_DATE_FILTER, 0);
       setInputs(read);
       setTab("sales");
+      scrollToResult.current = true;
       setBundle({ ...built, ms: performance.now() - started });
     } catch (e) {
       setError(errorText(e, "Something went wrong while reading your files."));
@@ -193,13 +244,28 @@ export function AmazonReports() {
     setDateError(null);
     const started = performance.now();
     try {
-      const rebuilt = buildBundle(inputs, options, next, 0);
+      // The chosen return sub-filter stays if the new dates still have data for it, otherwise it goes back to All
+      const rebuilt = buildBundle(inputs, options, next, 0, bundle?.returnFilter ?? NO_RETURN_FILTER);
       setDateFilter(next);
       setBundle({ ...rebuilt, ms: performance.now() - started });
     } catch (e) {
       // Nothing found for these days: keep the reports that are on screen and say so
       setDateError(errorText(e, "These dates could not be applied."));
     }
+  }
+
+  /** Rebuilds only the Returns report and the SKU Return Ratio for the chosen return sub-filter. */
+  function changeReturnFilter(next: ReturnFilterState) {
+    if (!bundle || !bundle.returnsTable || !inputs) return;
+    const info = buildReturnFilterInfo(loadAmazonReturns(bundle.returnsTable, options).lines, next);
+    const ordersTable = filterAmazonOrders(inputs.ordersTable, dateFilter);
+    setBundle({
+      ...bundle,
+      returns: buildAmazonReturnsReport(bundle.returnsTable, options, info.state),
+      ratio: buildReturnRatio(ordersTable, bundle.returnsTable, options, info.state),
+      returnFilter: info.state,
+      returnFilterInfo: info,
+    });
   }
 
   function generate() {
@@ -219,7 +285,13 @@ export function AmazonReports() {
     void runReports(sample.orders, sample.returns, true);
   }
 
-  const activeReport = bundle ? (tab === "returns" && bundle.returns ? bundle.returns : bundle.sales) : null;
+  const activeReport = bundle
+    ? tab === "returns" && bundle.returns
+      ? bundle.returns
+      : tab === "ratio" && bundle.ratio
+        ? bundle.ratio
+        : bundle.sales
+    : null;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-indigo-50/40">
@@ -267,7 +339,7 @@ export function AmazonReports() {
                   />
                   <FileSlot
                     title="Returns file (optional)"
-                    hint="Amazon All Returns report (.tsv). Adds the SKU Return Ratio report."
+                    hint="Amazon All Returns report (.tsv). Adds the Returns report and the SKU Return Ratio."
                     file={returnsFile}
                     error={returnsError}
                     disabled={busy}
@@ -310,7 +382,7 @@ export function AmazonReports() {
                       checked={options.excludeRejectedReturns}
                       disabled={busy}
                       onChange={(v) => setOptions({ ...options, excludeRejectedReturns: v })}
-                      title='Leave out returns marked "Rejected" (Return Ratio only)'
+                      title='Leave out returns marked "Rejected" (Returns report and Return Ratio)'
                       help="Off by default, so rejected returns are counted."
                     />
                   </div>
@@ -352,7 +424,7 @@ export function AmazonReports() {
               )}
 
               <div className="flex flex-wrap items-center gap-3">
-                <div role="tablist" className="inline-flex rounded-xl bg-slate-100 p-1">
+                <div role="tablist" className="inline-flex flex-wrap rounded-xl bg-slate-100 p-1">
                   <button
                     type="button"
                     role="tab"
@@ -376,18 +448,39 @@ export function AmazonReports() {
                         tab === "returns" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
                       )}
                     >
+                      Returns Report
+                    </button>
+                  )}
+                  {bundle.ratio && (
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={tab === "ratio"}
+                      onClick={() => setTab("ratio")}
+                      className={cn(
+                        "rounded-lg px-4 py-2 text-sm font-semibold transition",
+                        tab === "ratio" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                      )}
+                    >
                       SKU Return Ratio
                     </button>
                   )}
                 </div>
                 {!bundle.returns && !bundle.returnsProblem && (
-                  <p className="text-xs text-slate-500">Add your Returns file above to also get the SKU Return Ratio report.</p>
+                  <p className="text-xs text-slate-500">Add your Returns file above to also get the Returns report and the SKU Return Ratio.</p>
                 )}
               </div>
 
-              {bundle.returnsProblem && <ErrorPanel message={`SKU Return Ratio could not be built. ${bundle.returnsProblem}`} />}
+              {bundle.returnsProblem && <ErrorPanel message={`The Returns reports could not be built. ${bundle.returnsProblem}`} />}
 
-              <ReportView result={activeReport} />
+              <ReportView
+                result={activeReport}
+                afterInsights={
+                  (tab === "returns" || tab === "ratio") && bundle.returnFilterInfo ? (
+                    <ReturnFilterBar info={bundle.returnFilterInfo} onChange={changeReturnFilter} />
+                  ) : undefined
+                }
+              />
             </div>
           )}
         </div>

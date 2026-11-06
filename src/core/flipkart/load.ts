@@ -7,7 +7,9 @@ import type { ParsedTable } from "../readTable";
 import { ReportInputError, parseNumber } from "../amazon/adapter";
 import { DateRange, parseDateLoose } from "../amazon/util";
 import { FLIPKART_ORDER_COLUMNS, FLIPKART_RETURN_COLUMNS, assertFlipkartColumns } from "./adapter";
+import { findColumn } from "../returnFilter";
 import type { FlipkartOptions } from "./options";
+import { FLIPKART_RETURN_STATUS_HEADINGS } from "./returnStatus";
 import type { SkuNames } from "./sku";
 
 export interface FlipkartOrderLine {
@@ -73,6 +75,8 @@ export interface FlipkartReturnLine {
   result: string;
   expectation: string;
   orderItemId: string;
+  /** Value of the nested "Return status" column; "" while that column is not set up */
+  status: string;
 }
 
 export interface FlipkartReturnStats {
@@ -94,6 +98,7 @@ export function loadFlipkartReturns(table: ParsedTable, options: FlipkartOptions
     dates: new DateRange(),
   };
   const cell = (row: Record<string, string>, col: string | undefined) => (col ? (row[col] ?? "").trim() : "");
+  const statusCol = findColumn(table.headers, FLIPKART_RETURN_STATUS_HEADINGS);
 
   for (const row of table.rows) {
     const rawSku = row[cols.sku!] ?? "";
@@ -118,6 +123,7 @@ export function loadFlipkartReturns(table: ParsedTable, options: FlipkartOptions
       result: cell(row, cols.returnResult) || "(blank)",
       expectation: cell(row, cols.returnExpectation) || "(blank)",
       orderItemId: cell(row, cols.orderItemId),
+      status: statusCol ? cell(row, statusCol) || "(blank)" : "",
     });
   }
 

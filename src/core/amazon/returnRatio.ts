@@ -9,19 +9,27 @@
 
 import type { ReportResult } from "../../types";
 import type { ParsedTable } from "../readTable";
-import { RETURN_COLUMNS, assertColumns, parseNumber } from "./adapter";
+import {
+  applyReturnFilter,
+  buildReturnFilterInfo,
+  NO_RETURN_FILTER,
+  returnFilterInsight,
+  titleWithReturnFilter,
+  type ReturnFilterState,
+} from "../returnFilter";
 import { loadOrderLines } from "./orders";
+import { loadAmazonReturns } from "./returns";
 import { DEFAULT_OPTIONS, type AmazonOptions } from "./options";
-import { DateRange, addTo, num, parseDateLoose, round2 } from "./util";
+import { addTo, num, round2 } from "./util";
 import type { ReportChart } from "../../types";
 
 export function buildReturnRatio(
   orders: ParsedTable,
   returns: ParsedTable,
-  options: AmazonOptions = DEFAULT_OPTIONS
+  options: AmazonOptions = DEFAULT_OPTIONS,
+  filter: ReturnFilterState = NO_RETURN_FILTER
 ): ReportResult {
   const { lines, stats } = loadOrderLines(orders, options);
-  const cols = assertColumns(returns, RETURN_COLUMNS, "Returns");
 
   const unitsBySku = new Map<string, number>();
   let totalUnits = 0;
@@ -30,23 +38,14 @@ export function buildReturnRatio(
     totalUnits += l.qty;
   }
 
+  const { lines: allReturnLines, stats: returnStats } = loadAmazonReturns(returns, options);
+  // Sub-filter (return type / return status) decides which returns are counted; Orders stay the same
+  const info = buildReturnFilterInfo(allReturnLines, filter);
   const returnsBySku = new Map<string, number>();
-  const returnDates = new DateRange();
-  let rejectedRows = 0;
-  let rejectedUnits = 0;
-  for (const row of returns.rows) {
-    const sku = (row[cols.sku!] ?? "").trim();
-    const qty = parseNumber(row[cols.returnQty!]);
-    if (!sku) continue;
-    returnDates.add(parseDateLoose(cols.returnDate ? row[cols.returnDate] : undefined));
-    const isRejected = /rejected/i.test((cols.returnType ? row[cols.returnType] : "") ?? "");
-    if (isRejected) {
-      rejectedRows++;
-      rejectedUnits += qty;
-      if (options.excludeRejectedReturns) continue;
-    }
-    addTo(returnsBySku, sku, qty);
-  }
+  for (const l of applyReturnFilter(allReturnLines, info.state)) addTo(returnsBySku, l.sku, l.qty);
+  const returnDates = returnStats.dates;
+  const rejectedRows = returnStats.rejectedRows;
+  const rejectedUnits = returnStats.rejectedUnits;
 
   // Start alphabetical, then apply two stable sorts (Orders, then Ratio).
   const rows = [...returnsBySku.keys()]
@@ -66,6 +65,8 @@ export function buildReturnRatio(
   const pct = (r: number) => `${round2(r * 100)}%`;
 
   const insights: string[] = [];
+  const filterNote = returnFilterInsight(info);
+  if (filterNote) insights.push(filterNote);
   const orderPeriod = stats.dates.label();
   const returnPeriod = returnDates.label();
   if (orderPeriod) insights.push(`Orders file period: ${orderPeriod}.`);
@@ -122,7 +123,7 @@ export function buildReturnRatio(
   ];
 
   return {
-    title: "SKU Return Ratio Report",
+    title: titleWithReturnFilter("SKU Return Ratio Report", info),
     generatedAt: new Date().toISOString(),
     summary: [
       { label: "Units Sold", value: num(totalUnits) },
