@@ -11,7 +11,7 @@ export function SiteHeader() {
           </div>
           <div className="leading-tight">
             <p className="text-lg font-semibold tracking-tight text-slate-900">Xian Tech</p>
-            <p className="hidden text-xs text-slate-500 sm:block">Marketplace Business Intelligence</p>
+            <p className="hidden text-xs text-slate-600 sm:block">Marketplace Business Intelligence</p>
           </div>
         </a>
         <nav className="flex items-center gap-2">

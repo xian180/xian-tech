@@ -29,11 +29,11 @@ export function HowItWorks() {
                 {i + 1}
               </span>
               <p className="mt-3 font-semibold text-slate-900">{step.title}</p>
-              <p className="mt-1 text-sm text-slate-500">{step.body}</p>
+              <p className="mt-1 text-sm text-slate-600">{step.body}</p>
             </div>
           ))}
         </div>
-        <p className="mx-auto mt-8 max-w-2xl text-center text-xs text-slate-400">
+        <p className="mx-auto mt-8 max-w-2xl text-center text-xs text-slate-500">
           Your Excel file is processed locally using Python running in your browser (via WebAssembly). It is never
           uploaded to any server.
         </p>

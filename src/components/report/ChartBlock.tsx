@@ -25,8 +25,8 @@ import type { ReportChart } from "@/types";
 import { formatMoney } from "@/core/format";
 import { SLICE_COLORS, TONES, compact, formatValue } from "./theme";
 
-const GRID = "#e2e8f0";
-const AXIS = { fontSize: 11, fill: "#64748b" };
+const GRID = "#cbd5e1";
+const AXIS = { fontSize: 11, fill: "#475569" };
 
 function TooltipBox({ active, payload, label, unit }: { active?: boolean; payload?: any[]; label?: string; unit?: string }) {
   if (!active || !payload || payload.length === 0) return null;
@@ -116,7 +116,7 @@ function DonutBlock({ chart, rows, first }: { chart: ReportChart; rows: Record<s
             outerRadius={narrow ? "72%" : "88%"}
             paddingAngle={isDonut ? 3 : 1}
             cornerRadius={isDonut ? 6 : 0}
-            stroke="#fff"
+            stroke="#f8fafc"
             strokeWidth={2}
           >
             {rows.map((_, i) => (
@@ -128,7 +128,7 @@ function DonutBlock({ chart, rows, first }: { chart: ReportChart; rows: Record<s
               <text x={cx} y={cy} textAnchor="middle" fill="#0f172a" fontSize={22} fontWeight={700}>
                 {compact(total)}
               </text>
-              <text x={cx} y={cy} dy={18} textAnchor="middle" fill="#64748b" fontSize={11}>
+              <text x={cx} y={cy} dy={18} textAnchor="middle" fill="#475569" fontSize={11}>
                 total
               </text>
             </>
@@ -204,7 +204,7 @@ function renderChart(chart: ReportChart, uid: string) {
             <YAxis type="category" dataKey="name" width={hbarAxisWidth(chart.labels.map(String))} tick={<HBarTick />} interval={0} axisLine={false} tickLine={false} />
             <Tooltip cursor={{ fill: tone.soft }} content={<TooltipBox unit={chart.unit} />} />
             <Bar dataKey={first} radius={[0, 8, 8, 0]} fill={`url(#${uid}-h)`} barSize={16}
-              label={{ position: "right", fontSize: 11, fill: "#475569", formatter: (v: any) => formatValue(Number(v), chart.unit) }} />
+              label={{ position: "right", fontSize: 11, fill: "#1e293b", formatter: (v: any) => formatValue(Number(v), chart.unit) }} />
           </BarChart>
         </ResponsiveContainer>
       );
@@ -292,7 +292,7 @@ function renderChart(chart: ReportChart, uid: string) {
           <ScatterChart margin={{ top: 12, right: 16, bottom: 20, left: -4 }}>
             <CartesianGrid stroke={GRID} strokeDasharray="3 3" />
             <XAxis type="number" dataKey="x" name={chart.xLabel ?? "x"} tick={AXIS} axisLine={false} tickLine={false}
-              label={{ value: chart.xLabel, position: "insideBottom", offset: -12, fontSize: 11, fill: "#64748b" }} />
+              label={{ value: chart.xLabel, position: "insideBottom", offset: -12, fontSize: 11, fill: "#475569" }} />
             <YAxis type="number" dataKey="y" name={chart.yLabel ?? "y"} tick={AXIS} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
             <ZAxis type="number" dataKey="z" range={[60, 380]} name="Returned units" />
             <Tooltip
@@ -324,16 +324,16 @@ export function ChartBlock({ chart }: { chart: ReportChart }) {
   const tone = TONES[chart.color ?? "indigo"];
   const empty = chart.type === "scatter" ? (chart.points ?? []).length === 0 : chart.labels.length === 0;
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-md sm:p-5">
       <div className="flex items-start gap-3">
         <span className="mt-1 h-8 w-1.5 shrink-0 rounded-full" style={{ background: `linear-gradient(${tone.main}, ${tone.light})` }} />
         <div>
           <h3 className="text-sm font-semibold text-slate-900">{chart.title}</h3>
-          {chart.subtitle && <p className="text-xs text-slate-500">{chart.subtitle}</p>}
+          {chart.subtitle && <p className="text-xs text-slate-600">{chart.subtitle}</p>}
         </div>
       </div>
-      <div className="mt-3 h-72 w-full">
-        {empty ? <p className="flex h-full items-center justify-center text-sm text-slate-400">No data to chart.</p> : renderChart(chart, uid)}
+      <div className="mt-3 h-72 w-full rounded-xl bg-slate-50 p-2 ring-1 ring-slate-200">
+        {empty ? <p className="flex h-full items-center justify-center text-sm text-slate-500">No data to chart.</p> : renderChart(chart, uid)}
       </div>
     </div>
   );

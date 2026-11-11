@@ -13,12 +13,12 @@ export function ReportSelector({ reports, selectedId, onSelect, disabled }: Repo
   return (
     <div>
       <h2 className="text-lg font-semibold text-slate-900">2. Choose the report you need</h2>
-      <p className="mt-1 text-sm text-slate-500">
+      <p className="mt-1 text-sm text-slate-600">
         Each report runs its own dedicated analysis script on your uploaded data.
       </p>
 
       {reports.length === 0 ? (
-        <p className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+        <p className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-600">
           No reports are currently available. Please check back soon.
         </p>
       ) : (
@@ -57,15 +57,15 @@ export function ReportSelector({ reports, selectedId, onSelect, disabled }: Repo
                     {active && <span className="h-2 w-2 rounded-full bg-white" />}
                   </span>
                 </div>
-                <p className="mt-1 text-sm text-slate-500">{report.description}</p>
+                <p className="mt-1 text-sm text-slate-600">{report.description}</p>
                 <div className="mt-3 flex flex-wrap items-center gap-1.5">
                   {report.requiredColumns.slice(0, 4).map((c) => (
-                    <span key={c} className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                    <span key={c} className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
                       {c}
                     </span>
                   ))}
                   {report.requiredColumns.length > 4 && (
-                    <span className="text-[11px] text-slate-400">+{report.requiredColumns.length - 4} more</span>
+                    <span className="text-[11px] text-slate-500">+{report.requiredColumns.length - 4} more</span>
                   )}
                 </div>
                 <button

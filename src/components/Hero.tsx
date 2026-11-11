@@ -30,7 +30,7 @@ export function Hero() {
               Try Flipkart Reports
             </a>
           </div>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-2 text-sm text-slate-500">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-2 text-sm text-slate-600">
             <span className="font-medium text-slate-700">Supported marketplaces:</span>
             {SUPPORTED_MARKETPLACES.map((m) => (
               <span key={m} className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-600">

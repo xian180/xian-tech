@@ -45,16 +45,16 @@ export function DateRangeBar({ applied, busy, coverage, note, error, onApply }: 
     "mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:opacity-60";
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-md sm:p-5">
       <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
         <div className="min-w-[10rem] flex-1 sm:flex-none">
-          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="date-from">
+          <label className="text-xs font-semibold uppercase tracking-wide text-slate-600" htmlFor="date-from">
             From
           </label>
           <input id="date-from" type="date" value={from} disabled={busy} onChange={(e) => setFrom(e.target.value)} className={inputClass} />
         </div>
         <div className="min-w-[10rem] flex-1 sm:flex-none">
-          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="date-to">
+          <label className="text-xs font-semibold uppercase tracking-wide text-slate-600" htmlFor="date-to">
             To
           </label>
           <input id="date-to" type="date" value={to} disabled={busy} onChange={(e) => setTo(e.target.value)} className={inputClass} />
@@ -90,8 +90,8 @@ export function DateRangeBar({ applied, busy, coverage, note, error, onApply }: 
           <>Custom dates: pick the days you want to look at. Right now every date in your files is used.</>
         )}
       </p>
-      <p className="mt-1 text-xs text-slate-500">{note}</p>
-      {coverage.length > 0 && <p className="mt-1 text-xs text-slate-400">Your files cover - {coverage.join(" | ")}</p>}
+      <p className="mt-1 text-xs text-slate-600">{note}</p>
+      {coverage.length > 0 && <p className="mt-1 text-xs text-slate-500">Your files cover - {coverage.join(" | ")}</p>}
     </div>
   );
 }

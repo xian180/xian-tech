@@ -20,7 +20,7 @@ function Pill(props: { active: boolean; label: string; units: number; onClick: (
       )}
     >
       {props.label}
-      <span className={cn("ml-2 whitespace-nowrap text-xs font-medium", props.active ? "text-indigo-100" : "text-slate-400")}>
+      <span className={cn("ml-2 whitespace-nowrap text-xs font-medium", props.active ? "text-indigo-100" : "text-slate-500")}>
         {props.units.toLocaleString("en-IN")} units
       </span>
     </button>
@@ -37,10 +37,10 @@ export function ReturnFilterBar({ info, onChange }: ReturnFilterBarProps) {
   const statusTotal = info.statuses.reduce((s, c) => s + c.units, 0);
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-md sm:p-5">
       {info.types.length > 0 && (
         <>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Sub-filter (return type)</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Sub-filter (return type)</p>
           <div role="group" aria-label="Return type" className="mt-2 flex flex-wrap gap-2">
             <Pill active={state.type === "all"} label="All" units={info.types.reduce((s, c) => s + c.units, 0)} onClick={() => onChange({ type: "all", status: "all" })} />
             {info.types.map((c) => (
@@ -58,7 +58,7 @@ export function ReturnFilterBar({ info, onChange }: ReturnFilterBarProps) {
 
       {info.statuses.length > 0 && (
         <div className={cn(info.types.length > 0 && "mt-4 border-l-2 border-indigo-200 pl-4")}>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Return status</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Return status</p>
           <div role="group" aria-label="Return status" className="mt-2 flex flex-wrap gap-2">
             <Pill active={state.status === "all"} label="All" units={statusTotal} onClick={() => onChange({ ...state, status: "all" })} />
             {info.statuses.map((c) => (
@@ -68,7 +68,7 @@ export function ReturnFilterBar({ info, onChange }: ReturnFilterBarProps) {
         </div>
       )}
 
-      <p className="mt-3 text-xs text-slate-500">The tables and graphs below change with the sub-filter. &quot;All&quot; counts every return.</p>
+      <p className="mt-3 text-xs text-slate-600">The cards, graphs and tables below change with the sub-filter. &quot;All&quot; counts every return.</p>
     </div>
   );
 }

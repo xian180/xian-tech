@@ -70,8 +70,8 @@ export function DataTable({ table, reportName = "report" }: { table: ReportTable
   const maxLast = lastValues.length ? Math.max(...lastValues) : 0;
 
   return (
-    <div className="flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex min-h-[4rem] items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+    <div className="flex flex-col rounded-2xl border border-slate-300 bg-white shadow-md">
+      <div className="flex min-h-[4rem] items-center justify-between gap-2 rounded-t-2xl border-b border-slate-200 bg-slate-50 px-4 py-3">
         <h3 className="min-w-0 text-[13px] font-semibold leading-tight text-slate-900">{table.title}</h3>
         <DownloadMenu table={table} reportName={reportName} />
       </div>
@@ -79,7 +79,7 @@ export function DataTable({ table, reportName = "report" }: { table: ReportTable
       <div className="overflow-x-auto px-2 py-1">
         <table className="w-full border-collapse text-left text-xs">
           <thead>
-            <tr className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            <tr className="bg-slate-100 text-[10px] font-bold uppercase tracking-wide text-slate-700">
               {ranked && <th className="w-7 px-2 py-2">#</th>}
               {table.columns.map((col, j) => (
                 <th key={col} className={`px-2 py-2 ${j > 0 ? "text-right" : ""}`}>
@@ -91,14 +91,14 @@ export function DataTable({ table, reportName = "report" }: { table: ReportTable
           <tbody>
             {shown.length === 0 ? (
               <tr>
-                <td colSpan={table.columns.length + (ranked ? 1 : 0)} className="px-3 py-6 text-center text-slate-400">
+                <td colSpan={table.columns.length + (ranked ? 1 : 0)} className="px-3 py-6 text-center text-slate-500">
                   No data available.
                 </td>
               </tr>
             ) : (
               shown.map((row, i) => (
-                <tr key={i} className="border-t border-slate-100 hover:bg-slate-50">
-                  {ranked && <td className="px-2 py-2 text-slate-400">{i + 1}</td>}
+                <tr key={i} className="border-t border-slate-100 odd:bg-white even:bg-slate-50/60 hover:bg-indigo-50/60">
+                  {ranked && <td className="px-2 py-2 text-slate-500">{i + 1}</td>}
                   {row.map((cell, j) => {
                     const isBarCol = ranked && compactTable && j === lastCol && typeof cell === "number" && maxLast > 0;
                     const pct = isBarCol ? Math.max(4, (Number(cell) / maxLast) * 100) : 0;
@@ -106,7 +106,7 @@ export function DataTable({ table, reportName = "report" }: { table: ReportTable
                       <td
                         key={j}
                         className={`px-2 py-2 ${j === 0 ? "font-medium text-slate-800" : "whitespace-nowrap text-right tabular-nums text-slate-700"}`}
-                        style={isBarCol ? { background: `linear-gradient(90deg, transparent ${100 - pct}%, rgba(99,102,241,0.14) ${100 - pct}%)` } : undefined}
+                        style={isBarCol ? { background: `linear-gradient(90deg, transparent ${100 - pct}%, rgba(79,70,229,0.18) ${100 - pct}%)` } : undefined}
                       >
                         {formatCell(cell, table.columnFormats?.[j])}
                       </td>
@@ -120,7 +120,7 @@ export function DataTable({ table, reportName = "report" }: { table: ReportTable
       </div>
 
       {limit && table.rows.length > limit && (
-        <p className="mt-auto border-t border-slate-100 px-4 py-2.5 text-[11px] text-slate-500">
+        <p className="mt-auto border-t border-slate-100 px-4 py-2.5 text-[11px] text-slate-600">
           Showing top {limit} of {table.rows.length.toLocaleString("en-IN")}. Use Download for the full list.
         </p>
       )}

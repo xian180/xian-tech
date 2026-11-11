@@ -65,7 +65,7 @@ export function FileSlot({ title, hint, file, error, disabled, onFile, onRemove 
           <p className="text-sm font-medium text-slate-700">
             Drag &amp; drop here, or <span className="text-indigo-600">browse</span>
           </p>
-          <p className="mt-1 text-xs text-slate-500">.txt, .tsv, .csv, .xlsx or .xls - up to 25 MB</p>
+          <p className="mt-1 text-xs text-slate-600">.txt, .tsv, .csv, .xlsx or .xls - up to 25 MB</p>
         </div>
       )}
 

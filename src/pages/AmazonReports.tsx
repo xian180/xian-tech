@@ -6,6 +6,7 @@ import { ReportView } from "@/components/report/ReportView";
 import { LoadingPanel, ErrorPanel } from "@/components/StatusPanels";
 import { readTableFile, validateFileBasics, type ParsedTable } from "@/core/readTable";
 import { DateRangeBar } from "@/components/DateRangeBar";
+import { SpeedBanner } from "@/components/MarketplaceParts";
 import { NO_DATE_FILTER, type DateFilter } from "@/core/dateFilter";
 import { amazonCoverage, filterAmazonOrders, filterAmazonReturns } from "@/core/amazon/dateFilter";
 import { buildSalesReport } from "@/core/amazon/salesReport";
@@ -58,48 +59,9 @@ function OptionRow(props: { checked: boolean; onChange: (v: boolean) => void; ti
       />
       <span>
         <span className="block text-sm font-medium text-slate-800">{props.title}</span>
-        <span className="block text-xs text-slate-500">{props.help}</span>
+        <span className="block text-xs text-slate-600">{props.help}</span>
       </span>
     </label>
-  );
-}
-
-/** 0.0042 s -> "under 0.01 seconds", 0.42 s -> "0.42 seconds", 2.5 s -> "2.5 seconds" */
-function formatSeconds(ms: number): string {
-  const s = ms / 1000;
-  if (s < 0.01) return "under 0.01 seconds";
-  if (s < 10) return `${s.toFixed(2)} seconds`;
-  return `${s.toFixed(1)} seconds`;
-}
-
-function SpeedBanner({ bundle }: { bundle: ReportBundle }) {
-  const count = 1 + (bundle.returns ? 1 : 0) + (bundle.ratio ? 1 : 0);
-  const rows = bundle.returns
-    ? `${bundle.orderRows.toLocaleString("en-IN")} order rows + ${bundle.returnRows.toLocaleString("en-IN")} return rows`
-    : `${bundle.orderRows.toLocaleString("en-IN")} order rows`;
-  return (
-    <div
-      id="speed-banner"
-      className="overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 p-5 text-white shadow-md sm:p-6"
-    >
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/20 text-2xl">⚡</span>
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wider text-emerald-50">
-            {count === 1 ? "Your report is ready in" : `All ${count} reports ready in`}
-          </p>
-          <p className="text-3xl font-bold tracking-tight sm:text-4xl">{formatSeconds(bundle.ms)}</p>
-        </div>
-        <p className="min-w-[14rem] flex-1 text-sm text-emerald-50 sm:text-right">
-          {rows} turned into {count === 1 ? "a ready dashboard" : "ready dashboards"} with Excel and PDF downloads, calculated on your own device.
-        </p>
-      </div>
-      {bundle.sample && (
-        <p className="mt-3 rounded-lg bg-white/15 px-3 py-2 text-xs text-white">
-          This is dummy sample data. Upload your own Amazon files above to see your real numbers.
-        </p>
-      )}
-    </div>
   );
 }
 
@@ -294,7 +256,7 @@ export function AmazonReports() {
     : null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-indigo-50/40">
+    <div className="min-h-screen bg-slate-200/70">
       <SiteHeader />
       <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-5xl">
@@ -310,7 +272,7 @@ export function AmazonReports() {
             </p>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <div className="rounded-3xl border border-slate-300 bg-white p-6 shadow-sm sm:p-8">
             <div className="space-y-10">
               <section>
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -410,7 +372,17 @@ export function AmazonReports() {
         <div ref={resultRef} className="mt-8 scroll-mt-24">
           {!busy && bundle && activeReport && (
             <div className="space-y-6">
-              <SpeedBanner bundle={bundle} />
+              <SpeedBanner
+                ms={bundle.ms}
+                reportCount={1 + (bundle.returns ? 1 : 0) + (bundle.ratio ? 1 : 0)}
+                marketplace="Amazon"
+                sample={bundle.sample}
+                rowsLabel={
+                  bundle.returns
+                    ? `${bundle.orderRows.toLocaleString("en-IN")} order rows + ${bundle.returnRows.toLocaleString("en-IN")} return rows`
+                    : `${bundle.orderRows.toLocaleString("en-IN")} order rows`
+                }
+              />
 
               {inputs && (
                 <DateRangeBar
@@ -424,7 +396,7 @@ export function AmazonReports() {
               )}
 
               <div className="flex flex-wrap items-center gap-3">
-                <div role="tablist" className="inline-flex flex-wrap rounded-xl bg-slate-100 p-1">
+                <div role="tablist" className="inline-flex flex-wrap rounded-xl border border-slate-300 bg-white p-1">
                   <button
                     type="button"
                     role="tab"
@@ -432,7 +404,7 @@ export function AmazonReports() {
                     onClick={() => setTab("sales")}
                     className={cn(
                       "rounded-lg px-4 py-2 text-sm font-semibold transition",
-                      tab === "sales" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                      tab === "sales" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
                     )}
                   >
                     SKU &amp; State Sales Report
@@ -445,7 +417,7 @@ export function AmazonReports() {
                       onClick={() => setTab("returns")}
                       className={cn(
                         "rounded-lg px-4 py-2 text-sm font-semibold transition",
-                        tab === "returns" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                        tab === "returns" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
                       )}
                     >
                       Returns Report
@@ -459,7 +431,7 @@ export function AmazonReports() {
                       onClick={() => setTab("ratio")}
                       className={cn(
                         "rounded-lg px-4 py-2 text-sm font-semibold transition",
-                        tab === "ratio" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                        tab === "ratio" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
                       )}
                     >
                       SKU Return Ratio
@@ -467,7 +439,7 @@ export function AmazonReports() {
                   )}
                 </div>
                 {!bundle.returns && !bundle.returnsProblem && (
-                  <p className="text-xs text-slate-500">Add your Returns file above to also get the Returns report and the SKU Return Ratio.</p>
+                  <p className="text-xs text-slate-600">Add your Returns file above to also get the Returns report and the SKU Return Ratio.</p>
                 )}
               </div>
 
@@ -475,7 +447,7 @@ export function AmazonReports() {
 
               <ReportView
                 result={activeReport}
-                afterInsights={
+                filters={
                   (tab === "returns" || tab === "ratio") && bundle.returnFilterInfo ? (
                     <ReturnFilterBar info={bundle.returnFilterInfo} onChange={changeReturnFilter} />
                   ) : undefined

@@ -25,7 +25,7 @@ export function MultiFileSlot({ title, hint, files, error, disabled, onFiles, on
   return (
     <div>
       <p className="text-sm font-semibold text-slate-800">{title}</p>
-      <p className="mt-0.5 text-xs text-slate-500">{hint}</p>
+      <p className="mt-0.5 text-xs text-slate-600">{hint}</p>
 
       {files.length > 0 && (
         <ul className="mt-3 space-y-2">
@@ -72,7 +72,7 @@ export function MultiFileSlot({ title, hint, files, error, disabled, onFiles, on
           {files.length > 0 ? "Add more files: " : "Drag & drop here, or "}
           <span className="text-indigo-600">browse</span>
         </p>
-        <p className="mt-1 text-xs text-slate-400">.xlsx or .xls - up to 25 MB each, several files allowed</p>
+        <p className="mt-1 text-xs text-slate-500">.xlsx or .xls - up to 25 MB each, several files allowed</p>
       </div>
 
       <input

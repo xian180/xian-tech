@@ -25,7 +25,7 @@ export function UploadSection({ uploadedFile, onFileChosen, onRemove, error, dis
   return (
     <div>
       <h2 className="text-lg font-semibold text-slate-900">1. Upload your marketplace Excel file</h2>
-      <p className="mt-1 text-sm text-slate-500">
+      <p className="mt-1 text-sm text-slate-600">
         Supported formats: .xlsx, .xls — exported from Amazon, Flipkart, AJIO, Meesho, Myntra or similar.
       </p>
 
@@ -57,7 +57,7 @@ export function UploadSection({ uploadedFile, onFileChosen, onRemove, error, dis
           <p className="mt-3 text-sm font-medium text-slate-700">
             Drag &amp; drop your Excel file here, or <span className="text-indigo-600">browse</span>
           </p>
-          <p className="mt-1 text-xs text-slate-400">Maximum file size: 25 MB</p>
+          <p className="mt-1 text-xs text-slate-500">Maximum file size: 25 MB</p>
           <input
             ref={inputRef}
             type="file"
@@ -78,7 +78,7 @@ export function UploadSection({ uploadedFile, onFileChosen, onRemove, error, dis
             </div>
             <div className="overflow-hidden">
               <p className="truncate text-sm font-medium text-slate-800">{uploadedFile.name}</p>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 {uploadedFile.sizeLabel} · {uploadedFile.headers.length} columns detected
               </p>
             </div>
