@@ -6,7 +6,7 @@ import { ReportView } from "@/components/report/ReportView";
 import { LoadingPanel, ErrorPanel } from "@/components/StatusPanels";
 import { readTableFile, validateFileBasics, type ParsedTable } from "@/core/readTable";
 import { DateRangeBar } from "@/components/DateRangeBar";
-import { SpeedBanner } from "@/components/MarketplaceParts";
+import { PlayIcon, SpeedBanner } from "@/components/MarketplaceParts";
 import { NO_DATE_FILTER, type DateFilter } from "@/core/dateFilter";
 import { amazonCoverage, filterAmazonOrders, filterAmazonReturns } from "@/core/amazon/dateFilter";
 import { buildSalesReport } from "@/core/amazon/salesReport";
@@ -283,7 +283,7 @@ export function AmazonReports() {
                     disabled={busy}
                     className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <span aria-hidden>✨</span> Try with sample data
+                    <PlayIcon /> Try with sample data
                   </button>
                 </div>
                 <div className="mt-4 grid gap-6 md:grid-cols-2">

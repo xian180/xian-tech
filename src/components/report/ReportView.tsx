@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { ReportResult } from "@/types";
 import { SummaryCards } from "./SummaryCards";
 import { DataTable } from "./DataTable";
@@ -20,7 +20,50 @@ interface ReportViewProps {
   filters?: ReactNode;
 }
 
+function SectionHeading({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-1">
+      <h3 className="text-base font-bold tracking-tight text-slate-900">{title}</h3>
+      {hint && <p className="text-xs text-slate-600">{hint}</p>}
+    </div>
+  );
+}
+
+/** Small bar that jumps to a section of a long report; stays visible under the site header while scrolling. */
+function JumpNav({ items }: { items: { id: string; label: string }[] }) {
+  const [active, setActive] = useState(items[0]?.id ?? "");
+  if (items.length < 3) return null;
+  return (
+    <nav
+      aria-label="Jump to a section"
+      className="sticky top-[4.5rem] z-20 -mx-1 flex gap-1.5 overflow-x-auto rounded-xl border border-slate-300 bg-white/95 p-1.5 shadow-md backdrop-blur"
+    >
+      {items.map((it) => (
+        <button
+          key={it.id}
+          type="button"
+          onClick={() => {
+            setActive(it.id);
+            document.getElementById(it.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+          className={`shrink-0 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition ${
+            active === it.id ? "bg-indigo-600 text-white" : "text-slate-700 hover:bg-slate-100"
+          }`}
+        >
+          {it.label}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
 export function ReportView({ result, filters }: ReportViewProps) {
+  const nav = [
+    { id: "rv-summary", label: "Summary", on: result.summary.length > 0 },
+    { id: "rv-insights", label: "Key insights", on: result.insights.length > 0 },
+    { id: "rv-charts", label: "Graphs", on: result.charts.length > 0 },
+    { id: "rv-tables", label: "Tables", on: result.tables.length > 0 },
+  ].filter((n) => n.on);
   return (
     <div id="report-output" className="@container space-y-6">
       <div className="flex flex-col gap-4 rounded-2xl bg-gradient-to-r from-indigo-700 via-indigo-700 to-violet-700 p-5 text-white shadow-md sm:flex-row sm:items-center sm:justify-between sm:p-6">
@@ -53,22 +96,28 @@ export function ReportView({ result, filters }: ReportViewProps) {
 
       {filters}
 
-      <SummaryCards items={result.summary} />
+      <JumpNav items={nav} />
+
+      <section id="rv-summary" className="scroll-mt-36 space-y-3">
+        <SectionHeading title="Summary" hint="The main numbers for this report" />
+        <SummaryCards items={result.summary} />
+      </section>
 
       {result.insights.length > 0 && (
-        <div className="rounded-2xl border border-slate-300 bg-white p-5 shadow-md">
+        <div id="rv-insights" className="scroll-mt-36 rounded-2xl border border-slate-300 bg-white p-5 shadow-md">
           <div className="flex items-center gap-2">
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
                 <path d="M9 18h6M10 21h4M12 3a6 6 0 00-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0012 3z" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </span>
-            <h3 className="text-sm font-semibold text-slate-900">Key Insights</h3>
+            <h3 className="text-base font-bold tracking-tight text-slate-900">Key insights</h3>
+            <p className="text-xs text-slate-600">What stands out in your data</p>
           </div>
           <ul className="mt-3 grid gap-2 sm:grid-cols-2">
             {result.insights.map((insight, i) => (
               <li key={i} className="flex gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-600" />
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-[11px] font-bold text-white">{i + 1}</span>
                 {insight}
               </li>
             ))}
@@ -77,14 +126,19 @@ export function ReportView({ result, filters }: ReportViewProps) {
       )}
 
       {result.charts.length > 0 && (
-        <div className="grid gap-5 @3xl:grid-cols-2">
-          {result.charts.map((chart, i) => (
-            <ChartBlock key={i} chart={chart} />
-          ))}
-        </div>
+        <section id="rv-charts" className="scroll-mt-36 space-y-3">
+          <SectionHeading title="Graphs" hint="See the pattern behind the numbers" />
+          <div className="grid gap-5 @3xl:grid-cols-2">
+            {result.charts.map((chart, i) => (
+              <ChartBlock key={i} chart={chart} />
+            ))}
+          </div>
+        </section>
       )}
 
       {result.tables.length > 0 && (
+        <section id="rv-tables" className="scroll-mt-36 space-y-3">
+          <SectionHeading title="Tables" hint="Top rows are shown here; Download has the full list" />
         <div
           className={`grid items-start gap-5 ${
             // Tables with many columns (money breakdowns) need the full width; simple 2-column tables sit side by side.
@@ -95,6 +149,7 @@ export function ReportView({ result, filters }: ReportViewProps) {
             <DataTable key={i} table={table} reportName={result.title} />
           ))}
         </div>
+        </section>
       )}
     </div>
   );

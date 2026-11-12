@@ -72,8 +72,8 @@ export function SummaryCards({ items }: { items: ReportSummaryItem[] }) {
         return (
           <div
             key={item.label}
-            className="relative overflow-hidden rounded-2xl border-2 bg-white p-4 shadow-md"
-            style={{ borderColor: t.ring }}
+            className="relative overflow-hidden rounded-2xl border-2 p-4 shadow-md"
+            style={{ borderColor: t.ring, background: `linear-gradient(180deg, ${t.soft} 0%, #ffffff 75%)` }}
           >
             <span className="absolute inset-x-0 top-0 h-1" style={{ background: `linear-gradient(90deg, ${t.main}, ${t.light})` }} />
             <div className="flex items-center justify-between gap-2">

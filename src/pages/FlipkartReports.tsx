@@ -3,7 +3,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { FileSlot } from "@/components/FileSlot";
 import { MultiFileSlot } from "@/components/MultiFileSlot";
-import { OptionRow, SpeedBanner } from "@/components/MarketplaceParts";
+import { OptionRow, PlayIcon, SpeedBanner } from "@/components/MarketplaceParts";
 import { ReportView } from "@/components/report/ReportView";
 import { LoadingPanel, ErrorPanel } from "@/components/StatusPanels";
 import { readTableFile, validateFileBasics, type ParsedTable } from "@/core/readTable";
@@ -370,7 +370,7 @@ export function FlipkartReports() {
                     disabled={busy}
                     className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <span aria-hidden>✨</span> Try with sample data
+                    <PlayIcon /> Try with sample data
                   </button>
                 </div>
                 <div className="mt-4 grid gap-6 md:grid-cols-2">
