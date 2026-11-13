@@ -362,6 +362,7 @@ export function buildFlipkartPaymentReport(files: PaymentFile[]): ReportResult {
   const netRevenue = net(total);
   const top10 = skuRows.slice(0, 10);
   const top10Net = top10.reduce((s, r) => s + r.net, 0);
+  const bankTotalAll = round2(monthRows.reduce((sum, m) => sum + m.bank, 0));
   const periodsText = monthRows.map((m) => m.label).join(", ");
 
   const insights: string[] = [];
@@ -415,18 +416,28 @@ export function buildFlipkartPaymentReport(files: PaymentFile[]): ReportResult {
     title: "Flipkart Payments & Revenue Report",
     generatedAt: new Date().toISOString(),
     summary: [
-      { label: "Net Revenue", value: inr(netRevenue), helpText: "Gross Sale + Refund, before Flipkart fees and taxes" },
       ...(showBank
         ? [
             realBank
-              ? { label: "Bank Settlement", value: inr(round2(monthRows.reduce((sum, m) => sum + m.bank, 0))), helpText: "Money received in your bank (after fees, taxes, ads)" }
+              ? { label: "Bank Settlement", value: inr(bankTotalAll), helpText: "Money received in your bank (after fees, taxes, ads)" }
               : { label: "Order Settlement", value: inr(round2(total.bank)), helpText: "After Flipkart fees and taxes (before ads and fines)" },
           ]
         : []),
       { label: "Gross Sale", value: inr(grossSale), helpText: "What customers paid" },
+      { label: "Net Revenue", value: inr(netRevenue), helpText: "Gross Sale + Refund, before Flipkart fees and taxes" },
       { label: "Refunds", value: inr(refund), helpText: `${num(total.returned)} units returned` },
+      ...(showBank
+        ? [
+            {
+              label: realBank ? "Fees + Taxes + Ads" : "Fees + Taxes",
+              value: inr(round2(netRevenue - (realBank ? bankTotalAll : round2(total.bank)))),
+              helpText: realBank
+                ? "Net Revenue - Bank Settlement: Flipkart fees, taxes (TCS/TDS/GST), ads and fines"
+                : "Net Revenue - Order Settlement (ads and fines not included, date filter is on)",
+            },
+          ]
+        : []),
       { label: "Units Sold", value: num(total.sold), helpText: `${num(skuRows.length)} SKUs` },
-      { label: "Payment Files", value: num(used.length), helpText: periodsText },
     ],
     tables: [
       {
