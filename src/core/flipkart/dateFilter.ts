@@ -64,6 +64,7 @@ export function filterPaymentFiles(files: PaymentFile[], f: DateFilter): Payment
       // Flipkart's Summary covers the whole file, so it cannot be compared with a part of it
       summarySale: null,
       summaryRefund: null,
+      summaryBank: null,
       summaryTax: { tcs: null, tds: null, gstOnFees: null, gstOnAds: null, adsFees: null, credit: null },
     });
   }

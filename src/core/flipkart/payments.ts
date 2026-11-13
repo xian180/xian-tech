@@ -7,7 +7,8 @@
 //   Refund (Rs.)       = money given back for a return (negative number)
 //   Seller SKU, Quantity
 // Gross Sale = total of Sale Amount | Refund = total of Refund
-// Net Revenue = Gross Sale + Refund (the money kept after returns)
+// Net Revenue = Gross Sale + Refund (the money kept after returns, before Flipkart fees)
+// Bank Settlement = total of "Bank Settlement Value (Rs.)" (what Flipkart pays out after fees, taxes and refunds)
 //
 // The file has NO customer state, so there is no State Wise table.
 // The "Summary of report" sheet of every file has Flipkart's own totals for
@@ -32,6 +33,8 @@ export interface PaymentLine {
   tcs: number;
   tds: number;
   gstOnFees: number;
+  /** "Bank Settlement Value (Rs.)" of this row: what Flipkart pays out for it, after fees and taxes */
+  bank: number;
 }
 
 /** One row of the "Ads" sheet, as written in the file (negative = money out) */
@@ -53,6 +56,10 @@ export interface PaymentFile {
   /** Flipkart's own totals from the Summary sheet (null when not found) */
   summarySale: number | null;
   summaryRefund: number | null;
+  /** Flipkart's own bank settlement total from the Summary sheet (null when not found) */
+  summaryBank: number | null;
+  /** true when the Orders sheet has the "Bank Settlement Value (Rs.)" column */
+  hasBank: boolean;
   /** Taxes deducted on the order lines (negative numbers, as Flipkart writes them) */
   tax: { tcs: number; tds: number; gstOnFees: number };
   /** The "Ads" sheet: wallet movements for advertisement (null when the file has no Ads sheet) */
@@ -103,6 +110,22 @@ function numberBeside(aoa: unknown[][], label: string): number | null {
   return null;
 }
 
+/** Like numberBeside, but for a label that only has to contain `part` (Summary sheet wording varies a little). */
+function numberBesideLike(aoa: unknown[][], part: string): number | null {
+  for (const row of aoa) {
+    const at = row.findIndex((c) => typeof c === "string" && norm(c).includes(part));
+    if (at < 0) continue;
+    for (let i = at + 1; i < row.length; i++) {
+      const raw = row[i];
+      if (raw === "" || raw === null || raw === undefined) continue;
+      if (typeof raw === "number") return raw;
+      const n = Number(String(raw).replace(/,/g, ""));
+      if (Number.isFinite(n)) return n;
+    }
+  }
+  return null;
+}
+
 export async function readFlipkartPaymentFile(file: File, names: SkuNames): Promise<PaymentFile> {
   const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
   const sheetNamed = (name: string) => wb.SheetNames.find((n) => n.trim().toLowerCase() === name);
@@ -139,6 +162,7 @@ export async function readFlipkartPaymentFile(file: File, names: SkuNames): Prom
   const lines: PaymentLine[] = [];
   const tax = { tcs: 0, tds: 0, gstOnFees: 0 };
   const dateAt = col.get("payment date");
+  const bankAt = col.get("bank settlement value (rs.)");
   const taxCol = { tcs: col.get("tcs (rs.)"), tds: col.get("tds (rs.)"), gstOnFees: col.get("gst on mp fees (rs.)") };
   const cellNum = (row: unknown[], i: number | undefined) => (i === undefined ? 0 : parseNumber(String(row[i] ?? "")));
   for (const row of aoa.slice(headerAt + 1)) {
@@ -158,6 +182,7 @@ export async function readFlipkartPaymentFile(file: File, names: SkuNames): Prom
       tcs: rowTcs,
       tds: rowTds,
       gstOnFees: rowGst,
+      bank: cellNum(row, bankAt),
     });
   }
   if (lines.length === 0) throw new ReportInputError(`The payment file "${file.name}" has no order rows.`);
@@ -165,6 +190,7 @@ export async function readFlipkartPaymentFile(file: File, names: SkuNames): Prom
   let period: string | null = null;
   let summarySale: number | null = null;
   let summaryRefund: number | null = null;
+  let summaryBank: number | null = null;
   const summaryName = sheetNamed("summary of report");
   if (summaryName) {
     const s = toAoa(summaryName);
@@ -174,6 +200,7 @@ export async function readFlipkartPaymentFile(file: File, names: SkuNames): Prom
     }
     summarySale = numberBeside(s, "sales amount");
     summaryRefund = numberBeside(s, "returns reversal");
+    summaryBank = numberBesideLike(s, "bank settlement");
   }
   const summaryTax = { tcs: null, tds: null, gstOnFees: null, gstOnAds: null, adsFees: null, credit: null } as PaymentFile["summaryTax"];
   if (summaryName) {
@@ -229,6 +256,8 @@ export async function readFlipkartPaymentFile(file: File, names: SkuNames): Prom
     lines,
     summarySale,
     summaryRefund,
+    summaryBank,
+    hasBank: bankAt !== undefined,
     tax,
     ads,
     adsRows,
@@ -241,12 +270,14 @@ interface Bucket {
   refund: number;
   sold: number;
   returned: number;
+  bank: number;
 }
-const emptyBucket = (): Bucket => ({ sale: 0, refund: 0, sold: 0, returned: 0 });
+const emptyBucket = (): Bucket => ({ sale: 0, refund: 0, sold: 0, returned: 0, bank: 0 });
 
 function add(b: Bucket, l: PaymentLine) {
   b.sale += l.sale;
   b.refund += l.refund;
+  b.bank += l.bank;
   if (l.sale > 0) b.sold += l.qty;
   if (l.refund < 0) b.returned += l.qty;
 }
@@ -284,6 +315,9 @@ export function buildFlipkartPaymentReport(files: PaymentFile[]): ReportResult {
   const total = emptyBucket();
   const mismatches: string[] = [];
   let checked = 0;
+  const bankNotes: string[] = [];
+  let bankChecked = 0;
+  const showBank = used.length > 0 && used.every((f) => f.hasBank);
 
   used.forEach((f, idx) => {
     const key = f.monthKey ?? `~${String(idx).padStart(3, "0")}`;
@@ -298,6 +332,12 @@ export function buildFlipkartPaymentReport(files: PaymentFile[]): ReportResult {
       add(month.b, l);
       add(total, l);
       add(own, l);
+    }
+    if (showBank && f.summaryBank !== null) {
+      bankChecked++;
+      if (Math.abs(own.bank - f.summaryBank) > 1) {
+        bankNotes.push(`${label}: order rows add up to ${inr(own.bank)}, Flipkart Summary says ${inr(f.summaryBank)}.`);
+      }
     }
     if (f.summarySale !== null && f.summaryRefund !== null) {
       checked++;
@@ -349,7 +389,22 @@ export function buildFlipkartPaymentReport(files: PaymentFile[]): ReportResult {
         : `Check: these totals do NOT match the Summary sheet of Flipkart - ${mismatches.join(" ")}`
     );
   }
-  insights.push("Net Revenue is before Flipkart fees, taxes (TCS/TDS) and ads. The money that reaches your bank is lower than this.");
+  if (showBank) {
+    const bank = round2(total.bank);
+    insights.push(
+      `Net Revenue is ${inr(netRevenue)} (before Flipkart fees). After fees and taxes, Bank Settlement is ${inr(bank)}, so ${inr(round2(netRevenue - bank))} (${netRevenue > 0 ? round2(((netRevenue - bank) / netRevenue) * 100) : 0}%) went to Flipkart fees and tax deductions.`
+    );
+    if (bankChecked > 0) {
+      insights.push(
+        bankNotes.length === 0
+          ? `Check: Bank Settlement matches the Summary sheet of Flipkart for all ${bankChecked} file(s).`
+          : `Bank Settlement differs from Flipkart's Summary sheet (the Summary may include costs that are not tied to one order, such as ads): ${bankNotes.join(" ")}`
+      );
+    }
+  } else {
+    insights.push("Net Revenue is before Flipkart fees, taxes (TCS/TDS) and ads. The money that reaches your bank is lower than this.");
+    insights.push('Bank Settlement is not shown: the "Bank Settlement Value (Rs.)" column was not found in every payment file.');
+  }
   const filtered = used.find((f) => f.dateFilter);
   if (filtered) {
     insights.push(
@@ -364,6 +419,9 @@ export function buildFlipkartPaymentReport(files: PaymentFile[]): ReportResult {
     generatedAt: new Date().toISOString(),
     summary: [
       { label: "Net Revenue", value: inr(netRevenue), helpText: "Gross Sale + Refund, before Flipkart fees and taxes" },
+      ...(showBank
+        ? [{ label: "Bank Settlement", value: inr(round2(total.bank)), helpText: "After Flipkart fees and taxes" }]
+        : []),
       { label: "Gross Sale", value: inr(grossSale), helpText: "What customers paid" },
       { label: "Refunds", value: inr(refund), helpText: `${num(total.returned)} units returned` },
       { label: "Units Sold", value: num(total.sold), helpText: `${num(skuRows.length)} SKUs` },
@@ -372,10 +430,10 @@ export function buildFlipkartPaymentReport(files: PaymentFile[]): ReportResult {
     tables: [
       {
         title: "SKU Wise Revenue",
-        columns: ["SKU", "Net Revenue", "Gross Sale", "Refund", "Units Sold", "Units Returned"],
-        rows: skuRows.map((r) => [r.sku, r.net, round2(r.b.sale), round2(r.b.refund), r.b.sold, r.b.returned]),
+        columns: ["SKU", "Net Revenue", ...(showBank ? ["Bank Settlement"] : []), "Gross Sale", "Refund", "Units Sold", "Units Returned"],
+        rows: skuRows.map((r) => [r.sku, r.net, ...(showBank ? [round2(r.b.bank)] : []), round2(r.b.sale), round2(r.b.refund), r.b.sold, r.b.returned]),
         previewRows: 10,
-        columnFormats: ["text", "money", "money", "money", "number", "number"],
+        columnFormats: ["text", "money", ...(showBank ? ["money" as const] : []), "money", "money", "number", "number"],
       },
       {
         title: "SKU Wise Refunds",
@@ -386,9 +444,9 @@ export function buildFlipkartPaymentReport(files: PaymentFile[]): ReportResult {
       },
       {
         title: "Month Wise Revenue",
-        columns: ["Payment Month", "Net Revenue", "Gross Sale", "Refund", "Units Sold", "Units Returned"],
-        rows: monthRows.map((m) => [m.label, net(m.b), round2(m.b.sale), round2(m.b.refund), m.b.sold, m.b.returned]),
-        columnFormats: ["text", "money", "money", "money", "number", "number"],
+        columns: ["Payment Month", "Net Revenue", ...(showBank ? ["Bank Settlement"] : []), "Gross Sale", "Refund", "Units Sold", "Units Returned"],
+        rows: monthRows.map((m) => [m.label, net(m.b), ...(showBank ? [round2(m.b.bank)] : []), round2(m.b.sale), round2(m.b.refund), m.b.sold, m.b.returned]),
+        columnFormats: ["text", "money", ...(showBank ? ["money" as const] : []), "money", "money", "number", "number"],
       },
     ],
     charts: [
@@ -404,11 +462,12 @@ export function buildFlipkartPaymentReport(files: PaymentFile[]): ReportResult {
       {
         type: "bar",
         title: "Revenue by Payment Month",
-        subtitle: "Gross Sale and Net Revenue",
+        subtitle: showBank ? "Gross Sale, Net Revenue and Bank Settlement" : "Gross Sale and Net Revenue",
         labels: monthRows.map((m) => m.label),
         series: [
           { name: "Gross Sale", data: monthRows.map((m) => round2(m.b.sale)) },
           { name: "Net Revenue", data: monthRows.map((m) => net(m.b)) },
+          ...(showBank ? [{ name: "Bank Settlement", data: monthRows.map((m) => round2(m.b.bank)) }] : []),
         ],
         unit: "₹",
       },
