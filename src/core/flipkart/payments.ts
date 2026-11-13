@@ -200,7 +200,7 @@ export async function readFlipkartPaymentFile(file: File, names: SkuNames): Prom
     }
     summarySale = numberBeside(s, "sales amount");
     summaryRefund = numberBeside(s, "returns reversal");
-    summaryBank = numberBesideLike(s, "bank settlement");
+    summaryBank = numberBesideLike(s, "net bank settlement") ?? numberBesideLike(s, "bank settlement");
   }
   const summaryTax = { tcs: null, tds: null, gstOnFees: null, gstOnAds: null, adsFees: null, credit: null } as PaymentFile["summaryTax"];
   if (summaryName) {
@@ -311,18 +311,19 @@ export function buildFlipkartPaymentReport(files: PaymentFile[]): ReportResult {
   const { used, skipped } = dedupePaymentFiles(files);
 
   const bySku = new Map<string, Bucket>();
-  const byMonth = new Map<string, { label: string; b: Bucket }>();
+  const byMonth = new Map<string, { label: string; b: Bucket; bank: number }>();
   const total = emptyBucket();
   const mismatches: string[] = [];
   let checked = 0;
-  const bankNotes: string[] = [];
-  let bankChecked = 0;
   const showBank = used.length > 0 && used.every((f) => f.hasBank);
+  // "Bank Settlement" = Flipkart's own "Net Bank Settlement (A)" (money that reached the bank, after ads and fines).
+  // It exists only for whole months, so with a date filter we show the order-level settlement only.
+  const realBank = showBank && used.every((f) => f.summaryBank !== null && !f.dateFilter);
 
   used.forEach((f, idx) => {
     const key = f.monthKey ?? `~${String(idx).padStart(3, "0")}`;
     const label = f.monthKey ? monthLabel(f.monthKey) : f.fileName;
-    const month = byMonth.get(key) ?? { label, b: emptyBucket() };
+    const month = byMonth.get(key) ?? { label, b: emptyBucket(), bank: 0 };
     byMonth.set(key, month);
     const own = emptyBucket();
     for (const l of f.lines) {
@@ -333,12 +334,7 @@ export function buildFlipkartPaymentReport(files: PaymentFile[]): ReportResult {
       add(total, l);
       add(own, l);
     }
-    if (showBank && f.summaryBank !== null) {
-      bankChecked++;
-      if (Math.abs(own.bank - f.summaryBank) > 1) {
-        bankNotes.push(`${label}: order rows add up to ${inr(own.bank)}, Flipkart Summary says ${inr(f.summaryBank)}.`);
-      }
-    }
+    if (realBank) month.bank += f.summaryBank ?? 0;
     if (f.summarySale !== null && f.summaryRefund !== null) {
       checked++;
       if (Math.abs(own.sale - f.summarySale) > 1 || Math.abs(own.refund - f.summaryRefund) > 1) {
@@ -390,15 +386,16 @@ export function buildFlipkartPaymentReport(files: PaymentFile[]): ReportResult {
     );
   }
   if (showBank) {
-    const bank = round2(total.bank);
-    insights.push(
-      `Net Revenue is ${inr(netRevenue)} (before Flipkart fees). After fees and taxes, Bank Settlement is ${inr(bank)}, so ${inr(round2(netRevenue - bank))} (${netRevenue > 0 ? round2(((netRevenue - bank) / netRevenue) * 100) : 0}%) went to Flipkart fees and tax deductions.`
-    );
-    if (bankChecked > 0) {
+    const orderSettle = round2(total.bank);
+    if (realBank) {
+      const bankTotal = round2(monthRows.reduce((sum, m) => sum + m.bank, 0));
       insights.push(
-        bankNotes.length === 0
-          ? `Check: Bank Settlement matches the Summary sheet of Flipkart for all ${bankChecked} file(s).`
-          : `Bank Settlement differs from Flipkart's Summary sheet (the Summary may include costs that are not tied to one order, such as ads): ${bankNotes.join(" ")}`
+        `From Net Revenue ${inr(netRevenue)}, Flipkart fees and taxes on orders leave ${inr(orderSettle)} (Order Settlement). After ads, GST on ads, fines and other charges that are not tied to one order (${inr(round2(orderSettle - bankTotal))}), the money in your bank is ${inr(bankTotal)}.`
+      );
+      insights.push("Bank Settlement is Flipkart's own \"Net Bank Settlement (A)\" from the Summary sheet of each file, so it matches Flipkart.");
+    } else {
+      insights.push(
+        `After Flipkart fees and taxes on orders, Order Settlement is ${inr(orderSettle)} (Net Revenue was ${inr(netRevenue)}). Ads and fines are not taken out of this figure, and Bank Settlement is not shown because the date filter is on (Flipkart gives it only for whole months).`
       );
     }
   } else {
@@ -420,7 +417,11 @@ export function buildFlipkartPaymentReport(files: PaymentFile[]): ReportResult {
     summary: [
       { label: "Net Revenue", value: inr(netRevenue), helpText: "Gross Sale + Refund, before Flipkart fees and taxes" },
       ...(showBank
-        ? [{ label: "Bank Settlement", value: inr(round2(total.bank)), helpText: "After Flipkart fees and taxes" }]
+        ? [
+            realBank
+              ? { label: "Bank Settlement", value: inr(round2(monthRows.reduce((sum, m) => sum + m.bank, 0))), helpText: "Money received in your bank (after fees, taxes, ads)" }
+              : { label: "Order Settlement", value: inr(round2(total.bank)), helpText: "After Flipkart fees and taxes (before ads and fines)" },
+          ]
         : []),
       { label: "Gross Sale", value: inr(grossSale), helpText: "What customers paid" },
       { label: "Refunds", value: inr(refund), helpText: `${num(total.returned)} units returned` },
@@ -430,7 +431,7 @@ export function buildFlipkartPaymentReport(files: PaymentFile[]): ReportResult {
     tables: [
       {
         title: "SKU Wise Revenue",
-        columns: ["SKU", "Net Revenue", ...(showBank ? ["Bank Settlement"] : []), "Gross Sale", "Refund", "Units Sold", "Units Returned"],
+        columns: ["SKU", "Net Revenue", ...(showBank ? ["Order Settlement"] : []), "Gross Sale", "Refund", "Units Sold", "Units Returned"],
         rows: skuRows.map((r) => [r.sku, r.net, ...(showBank ? [round2(r.b.bank)] : []), round2(r.b.sale), round2(r.b.refund), r.b.sold, r.b.returned]),
         previewRows: 10,
         columnFormats: ["text", "money", ...(showBank ? ["money" as const] : []), "money", "money", "number", "number"],
@@ -444,9 +445,9 @@ export function buildFlipkartPaymentReport(files: PaymentFile[]): ReportResult {
       },
       {
         title: "Month Wise Revenue",
-        columns: ["Payment Month", "Net Revenue", ...(showBank ? ["Bank Settlement"] : []), "Gross Sale", "Refund", "Units Sold", "Units Returned"],
-        rows: monthRows.map((m) => [m.label, net(m.b), ...(showBank ? [round2(m.b.bank)] : []), round2(m.b.sale), round2(m.b.refund), m.b.sold, m.b.returned]),
-        columnFormats: ["text", "money", ...(showBank ? ["money" as const] : []), "money", "money", "number", "number"],
+        columns: ["Payment Month", "Net Revenue", ...(showBank ? (realBank ? ["Order Settlement", "Bank Settlement"] : ["Order Settlement"]) : []), "Gross Sale", "Refund", "Units Sold", "Units Returned"],
+        rows: monthRows.map((m) => [m.label, net(m.b), ...(showBank ? (realBank ? [round2(m.b.bank), round2(m.bank)] : [round2(m.b.bank)]) : []), round2(m.b.sale), round2(m.b.refund), m.b.sold, m.b.returned]),
+        columnFormats: ["text", "money", ...(showBank ? (realBank ? ["money" as const, "money" as const] : ["money" as const]) : []), "money", "money", "number", "number"],
       },
     ],
     charts: [
@@ -462,12 +463,14 @@ export function buildFlipkartPaymentReport(files: PaymentFile[]): ReportResult {
       {
         type: "bar",
         title: "Revenue by Payment Month",
-        subtitle: showBank ? "Gross Sale, Net Revenue and Bank Settlement" : "Gross Sale and Net Revenue",
+        subtitle: showBank ? (realBank ? "Gross Sale, Net Revenue and Bank Settlement" : "Gross Sale, Net Revenue and Order Settlement") : "Gross Sale and Net Revenue",
         labels: monthRows.map((m) => m.label),
         series: [
           { name: "Gross Sale", data: monthRows.map((m) => round2(m.b.sale)) },
           { name: "Net Revenue", data: monthRows.map((m) => net(m.b)) },
-          ...(showBank ? [{ name: "Bank Settlement", data: monthRows.map((m) => round2(m.b.bank)) }] : []),
+          ...(showBank
+            ? [realBank ? { name: "Bank Settlement", data: monthRows.map((m) => round2(m.bank)) } : { name: "Order Settlement", data: monthRows.map((m) => round2(m.b.bank)) }]
+            : []),
         ],
         unit: "₹",
       },
