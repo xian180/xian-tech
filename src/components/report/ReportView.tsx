@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { ReportResult } from "@/types";
 import { SummaryCards } from "./SummaryCards";
 import { DataTable } from "./DataTable";
@@ -32,6 +32,23 @@ function SectionHeading({ title, hint }: { title: string; hint?: string }) {
 /** Small bar that jumps to a section of a long report; stays visible under the site header while scrolling. */
 function JumpNav({ items }: { items: { id: string; label: string }[] }) {
   const [active, setActive] = useState(items[0]?.id ?? "");
+  const idsKey = items.map((i) => i.id).join("|");
+
+  // Highlight the section that is currently on screen.
+  useEffect(() => {
+    const onScroll = () => {
+      let current = idsKey.split("|")[0];
+      for (const id of idsKey.split("|")) {
+        const el = document.getElementById(id);
+        if (el && el.getBoundingClientRect().top <= 170) current = id;
+      }
+      setActive(current);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [idsKey]);
+
   if (items.length < 3) return null;
   return (
     <nav

@@ -256,7 +256,7 @@ export function AmazonReports() {
     : null;
 
   return (
-    <div className="min-h-screen bg-slate-200/70">
+    <div className="min-h-screen bg-page">
       <SiteHeader />
       <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-5xl">

@@ -119,7 +119,7 @@ export function Home() {
   const isBusy = stage === "loading-engine" || stage === "running";
 
   return (
-    <div className="min-h-screen bg-slate-200/70">
+    <div className="min-h-screen bg-page">
       <SiteHeader />
       <main>
         <Hero />

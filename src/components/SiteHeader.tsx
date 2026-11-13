@@ -1,3 +1,5 @@
+import { AppearanceMenu } from "@/components/AppearanceMenu";
+
 export function SiteHeader() {
   return (
     <header className="border-b border-slate-200 bg-white/80 backdrop-blur sticky top-0 z-30">
@@ -39,6 +41,7 @@ export function SiteHeader() {
           >
             How it works
           </a>
+          <AppearanceMenu />
         </nav>
       </div>
     </header>

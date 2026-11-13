@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { ChartColor, ReportSummaryItem } from "@/types";
 import { TONES } from "./theme";
+import { useAppearance } from "@/theme/ThemeContext";
 
 type IconName = "rupee" | "box" | "tag" | "pin" | "cancel" | "undo" | "percent" | "chart";
 
@@ -55,6 +56,7 @@ const ICONS: Record<IconName, ReactNode> = {
 };
 
 export function SummaryCards({ items }: { items: ReportSummaryItem[] }) {
+  const dark = useAppearance().theme === "dark";
   if (items.length === 0) return null;
   const layout =
     items.length === 6
@@ -73,14 +75,17 @@ export function SummaryCards({ items }: { items: ReportSummaryItem[] }) {
           <div
             key={item.label}
             className="relative overflow-hidden rounded-2xl border-2 p-4 shadow-md"
-            style={{ borderColor: t.ring, background: `linear-gradient(180deg, ${t.soft} 0%, #ffffff 75%)` }}
+            style={{
+              borderColor: `color-mix(in srgb, ${t.main} ${dark ? 40 : 30}%, var(--surface))`,
+              background: `linear-gradient(180deg, color-mix(in srgb, ${t.main} ${dark ? 14 : 8}%, var(--surface)) 0%, var(--surface) 75%)`,
+            }}
           >
             <span className="absolute inset-x-0 top-0 h-1" style={{ background: `linear-gradient(90deg, ${t.main}, ${t.light})` }} />
             <div className="flex items-center justify-between gap-2">
               <p className="text-[11px] font-bold uppercase tracking-wide text-slate-600">{item.label}</p>
               <span
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-                style={{ background: t.soft, color: t.main }}
+                style={{ background: `color-mix(in srgb, ${t.main} 16%, var(--surface))`, color: dark ? t.light : t.main }}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-4 w-4">
                   {ICONS[icon]}

@@ -23,10 +23,21 @@ import {
 } from "recharts";
 import type { ReportChart } from "@/types";
 import { formatMoney } from "@/core/format";
+import { useAppearance } from "@/theme/ThemeContext";
+import type { ThemeId } from "@/theme/appearance";
 import { SLICE_COLORS, TONES, compact, formatValue } from "./theme";
 
-const GRID = "#cbd5e1";
-const AXIS = { fontSize: 11, fill: "#475569" };
+/** Chart colours that depend on the theme. ChartBlock refreshes this before drawing, so the helpers below read it. */
+const PALETTES: Record<ThemeId, { grid: string; axis: string; label: string; strong: string; center: string; edge: string; surface: string; cursor: string }> = {
+  light: { grid: "#cbd5e1", axis: "#475569", label: "#334155", strong: "#1e293b", center: "#0f172a", edge: "#f8fafc", surface: "#ffffff", cursor: "#eef2ff" },
+  teal: { grid: "#cbd5e1", axis: "#475569", label: "#334155", strong: "#1e293b", center: "#0f172a", edge: "#f8fafc", surface: "#ffffff", cursor: "#ccfbf1" },
+  cream: { grid: "#d8cdb4", axis: "#55574b", label: "#3f4439", strong: "#2b3129", center: "#1a211c", edge: "#faf7f0", surface: "#fffdf8", cursor: "#f0fdf4" },
+  dark: { grid: "#2b3a56", axis: "#94a3b8", label: "#cbd5e1", strong: "#e2e8f0", center: "#f1f5f9", edge: "#0e1626", surface: "#121a2b", cursor: "rgba(148,163,184,0.16)" },
+};
+const P = { ...PALETTES.light, tick: { fontSize: 11, fill: PALETTES.light.axis } };
+function setPalette(theme: ThemeId) {
+  Object.assign(P, PALETTES[theme], { tick: { fontSize: 11, fill: PALETTES[theme].axis } });
+}
 
 function TooltipBox({ active, payload, label, unit }: { active?: boolean; payload?: any[]; label?: string; unit?: string }) {
   if (!active || !payload || payload.length === 0) return null;
@@ -67,7 +78,7 @@ function TreemapCell(props: any) {
   // stroke="none": the chart's white box border must not be inherited by the text (it made it look bold).
   return (
     <g>
-      <rect x={x} y={y} width={width} height={height} rx={8} fill={fill} stroke="#fff" strokeWidth={3} opacity={0.95} />
+      <rect x={x} y={y} width={width} height={height} rx={8} fill={fill} stroke={P.surface} strokeWidth={3} opacity={0.95} />
       {showText && (
         <>
           <text x={x + 10} y={y + 20} fill="#fff" stroke="none" fontSize={12} fontWeight={600} style={{ pointerEvents: "none" }}>
@@ -116,7 +127,7 @@ function DonutBlock({ chart, rows, first }: { chart: ReportChart; rows: Record<s
             outerRadius={narrow ? "72%" : "88%"}
             paddingAngle={isDonut ? 3 : 1}
             cornerRadius={isDonut ? 6 : 0}
-            stroke="#f8fafc"
+            stroke={P.edge}
             strokeWidth={2}
           >
             {rows.map((_, i) => (
@@ -125,10 +136,10 @@ function DonutBlock({ chart, rows, first }: { chart: ReportChart; rows: Record<s
           </Pie>
           {isDonut && (
             <>
-              <text x={cx} y={cy} textAnchor="middle" fill="#0f172a" fontSize={22} fontWeight={700}>
+              <text x={cx} y={cy} textAnchor="middle" fill={P.center} fontSize={22} fontWeight={700}>
                 {compact(total)}
               </text>
-              <text x={cx} y={cy} dy={18} textAnchor="middle" fill="#475569" fontSize={11}>
+              <text x={cx} y={cy} dy={18} textAnchor="middle" fill={P.axis} fontSize={11}>
                 total
               </text>
             </>
@@ -172,7 +183,7 @@ function HBarTick({ x, y, payload }: { x?: number; y?: number; payload?: { value
   const full = String(payload?.value ?? "");
   const shown = full.length > HBAR_MAX_CHARS ? full.slice(0, HBAR_MAX_CHARS - 1) + "…" : full;
   return (
-    <text x={x} y={y} dy={4} textAnchor="end" fontSize={11} fill="#334155">
+    <text x={x} y={y} dy={4} textAnchor="end" fontSize={11} fill={P.label}>
       <title>{full}</title>
       {shown}
     </text>
@@ -199,12 +210,12 @@ function renderChart(chart: ReportChart, uid: string) {
             <defs>
               <Gradient id={`${uid}-h`} from={tone.light} to={tone.main} horizontal />
             </defs>
-            <CartesianGrid horizontal={false} stroke={GRID} strokeDasharray="3 3" />
-            <XAxis type="number" tick={AXIS} tickFormatter={tick} axisLine={false} tickLine={false} />
+            <CartesianGrid horizontal={false} stroke={P.grid} strokeDasharray="3 3" />
+            <XAxis type="number" tick={P.tick} tickFormatter={tick} axisLine={false} tickLine={false} />
             <YAxis type="category" dataKey="name" width={hbarAxisWidth(chart.labels.map(String))} tick={<HBarTick />} interval={0} axisLine={false} tickLine={false} />
-            <Tooltip cursor={{ fill: tone.soft }} content={<TooltipBox unit={chart.unit} />} />
+            <Tooltip cursor={{ fill: P.cursor }} content={<TooltipBox unit={chart.unit} />} />
             <Bar dataKey={first} radius={[0, 8, 8, 0]} fill={`url(#${uid}-h)`} barSize={16}
-              label={{ position: "right", fontSize: 11, fill: "#1e293b", formatter: (v: any) => formatValue(Number(v), chart.unit) }} />
+              label={{ position: "right", fontSize: 11, fill: P.strong, formatter: (v: any) => formatValue(Number(v), chart.unit) }} />
           </BarChart>
         </ResponsiveContainer>
       );
@@ -218,10 +229,10 @@ function renderChart(chart: ReportChart, uid: string) {
               <Gradient id={`${uid}-b`} from={TONES.rose.main} to={TONES.rose.light} />
               <Gradient id={`${uid}-c`} from={TONES.teal.main} to={TONES.teal.light} />
             </defs>
-            <CartesianGrid vertical={false} stroke={GRID} strokeDasharray="3 3" />
-            <XAxis dataKey="name" tick={AXIS} axisLine={false} tickLine={false} interval={0} angle={-30} textAnchor="end" height={52} />
-            <YAxis tick={AXIS} tickFormatter={tick} axisLine={false} tickLine={false} />
-            <Tooltip cursor={{ fill: tone.soft }} content={<TooltipBox unit={chart.unit} />} />
+            <CartesianGrid vertical={false} stroke={P.grid} strokeDasharray="3 3" />
+            <XAxis dataKey="name" tick={P.tick} axisLine={false} tickLine={false} interval={0} angle={-30} textAnchor="end" height={52} />
+            <YAxis tick={P.tick} tickFormatter={tick} axisLine={false} tickLine={false} />
+            <Tooltip cursor={{ fill: P.cursor }} content={<TooltipBox unit={chart.unit} />} />
             {chart.series.length > 1 && <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />}
             {chart.series.map((s, i) => (
               <Bar key={s.name} dataKey={s.name} radius={[6, 6, 0, 0]} maxBarSize={26} fill={`url(#${uid}-${["a", "b", "c"][i % 3]})`} />
@@ -234,9 +245,9 @@ function renderChart(chart: ReportChart, uid: string) {
       return (
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={rows} margin={{ top: 8, right: 12, bottom: 4, left: -8 }}>
-            <CartesianGrid vertical={false} stroke={GRID} strokeDasharray="3 3" />
-            <XAxis dataKey="name" tick={AXIS} axisLine={false} tickLine={false} />
-            <YAxis tick={AXIS} tickFormatter={tick} axisLine={false} tickLine={false} />
+            <CartesianGrid vertical={false} stroke={P.grid} strokeDasharray="3 3" />
+            <XAxis dataKey="name" tick={P.tick} axisLine={false} tickLine={false} />
+            <YAxis tick={P.tick} tickFormatter={tick} axisLine={false} tickLine={false} />
             <Tooltip content={<TooltipBox unit={chart.unit} />} />
             {chart.series.length > 1 && <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />}
             {chart.series.map((s, i) => (
@@ -252,17 +263,17 @@ function renderChart(chart: ReportChart, uid: string) {
           <ComposedChart data={rows} margin={{ top: 8, right: 4, bottom: 4, left: -8 }}>
             <defs>
               <Gradient id={`${uid}-p`} from={tone.main} to={tone.light} />
-              <Gradient id={`${uid}-pa`} from={TONES.amber.light} to="#ffffff" />
+              <Gradient id={`${uid}-pa`} from={TONES.amber.light} to={P.surface} />
             </defs>
-            <CartesianGrid vertical={false} stroke={GRID} strokeDasharray="3 3" />
-            <XAxis dataKey="name" tick={AXIS} axisLine={false} tickLine={false} interval={0} angle={-30} textAnchor="end" height={52} />
-            <YAxis yAxisId="l" tick={AXIS} tickFormatter={tick} axisLine={false} tickLine={false} />
-            <YAxis yAxisId="r" orientation="right" domain={[0, 100]} tick={AXIS} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
+            <CartesianGrid vertical={false} stroke={P.grid} strokeDasharray="3 3" />
+            <XAxis dataKey="name" tick={P.tick} axisLine={false} tickLine={false} interval={0} angle={-30} textAnchor="end" height={52} />
+            <YAxis yAxisId="l" tick={P.tick} tickFormatter={tick} axisLine={false} tickLine={false} />
+            <YAxis yAxisId="r" orientation="right" domain={[0, 100]} tick={P.tick} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
             <Tooltip content={<TooltipBox unit={chart.unit} />} />
             <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
             <Bar yAxisId="l" dataKey={chart.series[0]?.name} radius={[6, 6, 0, 0]} maxBarSize={28} fill={`url(#${uid}-p)`} />
             <Area yAxisId="r" type="monotone" dataKey={chart.series[1]?.name} stroke="none" fill={`url(#${uid}-pa)`} fillOpacity={0.5} legendType="none" tooltipType="none" />
-            <Line yAxisId="r" type="monotone" dataKey={chart.series[1]?.name} stroke={TONES.amber.main} strokeWidth={2.5} dot={{ r: 3, fill: "#fff", strokeWidth: 2 }} />
+            <Line yAxisId="r" type="monotone" dataKey={chart.series[1]?.name} stroke={TONES.amber.main} strokeWidth={2.5} dot={{ r: 3, fill: P.surface, strokeWidth: 2 }} />
           </ComposedChart>
         </ResponsiveContainer>
       );
@@ -277,7 +288,7 @@ function renderChart(chart: ReportChart, uid: string) {
           <Treemap
             data={chart.labels.map((l, i) => ({ name: String(l), size: chart.series[0]?.data[i] ?? 0 }))}
             dataKey="size"
-            stroke="#fff"
+            stroke={P.surface}
             isAnimationActive={false}
             content={<TreemapCell />}
           >
@@ -290,10 +301,10 @@ function renderChart(chart: ReportChart, uid: string) {
       return (
         <ResponsiveContainer width="100%" height="100%">
           <ScatterChart margin={{ top: 12, right: 16, bottom: 20, left: -4 }}>
-            <CartesianGrid stroke={GRID} strokeDasharray="3 3" />
-            <XAxis type="number" dataKey="x" name={chart.xLabel ?? "x"} tick={AXIS} axisLine={false} tickLine={false}
-              label={{ value: chart.xLabel, position: "insideBottom", offset: -12, fontSize: 11, fill: "#475569" }} />
-            <YAxis type="number" dataKey="y" name={chart.yLabel ?? "y"} tick={AXIS} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
+            <CartesianGrid stroke={P.grid} strokeDasharray="3 3" />
+            <XAxis type="number" dataKey="x" name={chart.xLabel ?? "x"} tick={P.tick} axisLine={false} tickLine={false}
+              label={{ value: chart.xLabel, position: "insideBottom", offset: -12, fontSize: 11, fill: P.axis }} />
+            <YAxis type="number" dataKey="y" name={chart.yLabel ?? "y"} tick={P.tick} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
             <ZAxis type="number" dataKey="z" range={[60, 380]} name="Returned units" />
             <Tooltip
               cursor={{ strokeDasharray: "3 3" }}
@@ -320,6 +331,7 @@ function renderChart(chart: ReportChart, uid: string) {
 }
 
 export function ChartBlock({ chart }: { chart: ReportChart }) {
+  setPalette(useAppearance().theme);
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const tone = TONES[chart.color ?? "indigo"];
   const empty = chart.type === "scatter" ? (chart.points ?? []).length === 0 : chart.labels.length === 0;

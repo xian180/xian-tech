@@ -8,6 +8,16 @@
       <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <script>
+      // Apply the saved appearance before the page paints, so there is no flash of the wrong theme.
+      try {
+        var a = JSON.parse(localStorage.getItem("xian-appearance-v1") || "{}");
+        var d = document.documentElement;
+        if (a.theme) d.dataset.theme = a.theme;
+        if (a.font) d.dataset.font = a.font;
+        if (a.size) d.dataset.size = a.size;
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
