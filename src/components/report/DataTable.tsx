@@ -97,7 +97,7 @@ export function DataTable({ table, reportName = "report" }: { table: ReportTable
               </tr>
             ) : (
               shown.map((row, i) => (
-                <tr key={i} className="border-t border-slate-100 odd:bg-white even:bg-slate-50/60 hover:bg-indigo-50/60">
+                <tr key={i} className="row-stripe border-t border-slate-100">
                   {ranked && <td className="px-2 py-2 text-slate-500">{i + 1}</td>}
                   {row.map((cell, j) => {
                     const isBarCol = ranked && compactTable && j === lastCol && typeof cell === "number" && maxLast > 0;

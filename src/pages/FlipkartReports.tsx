@@ -458,7 +458,7 @@ export function FlipkartReports() {
           </div>
         </div>
 
-        <div ref={resultRef} className="mt-8 scroll-mt-24">
+        <div ref={resultRef} className="mt-8 scroll-mt-[calc(var(--header-h)_+_1rem)]">
           {!busy && bundle && activeReport && (
             <div className="space-y-6">
               <SpeedBanner

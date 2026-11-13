@@ -349,6 +349,7 @@ export function buildFlipkartPaymentReport(files: PaymentFile[]): ReportResult {
         : `Check: these totals do NOT match the Summary sheet of Flipkart - ${mismatches.join(" ")}`
     );
   }
+  insights.push("Net Revenue is before Flipkart fees, taxes (TCS/TDS) and ads. The money that reaches your bank is lower than this.");
   const filtered = used.find((f) => f.dateFilter);
   if (filtered) {
     insights.push(
@@ -362,7 +363,7 @@ export function buildFlipkartPaymentReport(files: PaymentFile[]): ReportResult {
     title: "Flipkart Payments & Revenue Report",
     generatedAt: new Date().toISOString(),
     summary: [
-      { label: "Net Revenue", value: inr(netRevenue), helpText: "Gross Sale + Refund" },
+      { label: "Net Revenue", value: inr(netRevenue), helpText: "Gross Sale + Refund, before Flipkart fees and taxes" },
       { label: "Gross Sale", value: inr(grossSale), helpText: "What customers paid" },
       { label: "Refunds", value: inr(refund), helpText: `${num(total.returned)} units returned` },
       { label: "Units Sold", value: num(total.sold), helpText: `${num(skuRows.length)} SKUs` },

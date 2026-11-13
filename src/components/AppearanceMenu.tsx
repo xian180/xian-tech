@@ -53,7 +53,7 @@ export function AppearanceMenu() {
         <div
           role="dialog"
           aria-label="Appearance"
-          className="absolute right-0 z-40 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-slate-300 bg-white p-4 shadow-xl"
+          className="absolute right-0 z-40 mt-2 max-h-[calc(100vh-var(--header-h)-1.5rem)] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-2xl border border-slate-300 bg-white p-4 shadow-xl"
         >
           <div className="space-y-4">
             <div>

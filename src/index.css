@@ -24,6 +24,8 @@ table,
   --surface: #ffffff; /* cards, tables, charts */
   --page: #e9edf4; /* page background behind the cards */
   --ink: #0f172a;
+  --stripe: color-mix(in srgb, var(--color-slate-50) 70%, var(--surface));
+  --header-h: 4.5rem;
 }
 html {
   font-family: var(--font-sans);
@@ -94,9 +96,19 @@ html[data-theme="dark"] {
   --surface: #121a2b;
   --page: #0b1220;
   --ink: #f1f5f9;
+  --stripe: rgba(255, 255, 255, 0.035);
 }
 
 @layer utilities {
+  .row-stripe {
+    background-color: var(--surface);
+  }
+  .row-stripe:nth-child(even) {
+    background-color: var(--stripe);
+  }
+  .row-stripe:hover {
+    background-color: color-mix(in srgb, var(--color-indigo-600) 9%, var(--surface));
+  }
   .bg-page {
     background-color: var(--page);
   }
@@ -122,6 +134,7 @@ html[data-theme="dark"] {
     & .text-slate-600 { color: #aebbd0; }
     & .text-slate-500 { color: #94a3b8; }
     & .text-slate-400 { color: #7d8ca3; }
+    & .hover\:border-slate-300:hover { border-color: #4a5a7a; }
     & .hover\:text-slate-900:hover { color: #ffffff; }
     & .hover\:text-slate-600:hover { color: #cbd5e1; }
     & .text-indigo-700, & .text-indigo-600 { color: #a5b4fc; }

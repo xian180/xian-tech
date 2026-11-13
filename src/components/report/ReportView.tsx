@@ -40,7 +40,7 @@ function JumpNav({ items }: { items: { id: string; label: string }[] }) {
       let current = idsKey.split("|")[0];
       for (const id of idsKey.split("|")) {
         const el = document.getElementById(id);
-        if (el && el.getBoundingClientRect().top <= 170) current = id;
+        if (el && el.getBoundingClientRect().top <= parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--header-h") || "72") + 90) current = id;
       }
       setActive(current);
     };
@@ -53,7 +53,7 @@ function JumpNav({ items }: { items: { id: string; label: string }[] }) {
   return (
     <nav
       aria-label="Jump to a section"
-      className="sticky top-[4.5rem] z-20 -mx-1 flex gap-1.5 overflow-x-auto rounded-xl border border-slate-300 bg-white/95 p-1.5 shadow-md backdrop-blur"
+      className="sticky top-[var(--header-h)] z-20 -mx-1 flex gap-1.5 overflow-x-auto rounded-xl border border-slate-300 bg-white/95 p-1.5 shadow-md backdrop-blur"
     >
       {items.map((it) => (
         <button
@@ -115,13 +115,13 @@ export function ReportView({ result, filters }: ReportViewProps) {
 
       <JumpNav items={nav} />
 
-      <section id="rv-summary" className="scroll-mt-36 space-y-3">
+      <section id="rv-summary" className="scroll-mt-[calc(var(--header-h)_+_4.5rem)] space-y-3">
         <SectionHeading title="Summary" hint="The main numbers for this report" />
         <SummaryCards items={result.summary} />
       </section>
 
       {result.insights.length > 0 && (
-        <div id="rv-insights" className="scroll-mt-36 rounded-2xl border border-slate-300 bg-white p-5 shadow-md">
+        <div id="rv-insights" className="scroll-mt-[calc(var(--header-h)_+_4.5rem)] rounded-2xl border border-slate-300 bg-white p-5 shadow-md">
           <div className="flex items-center gap-2">
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
@@ -143,7 +143,7 @@ export function ReportView({ result, filters }: ReportViewProps) {
       )}
 
       {result.charts.length > 0 && (
-        <section id="rv-charts" className="scroll-mt-36 space-y-3">
+        <section id="rv-charts" className="scroll-mt-[calc(var(--header-h)_+_4.5rem)] space-y-3">
           <SectionHeading title="Graphs" hint="See the pattern behind the numbers" />
           <div className="grid gap-5 @3xl:grid-cols-2">
             {result.charts.map((chart, i) => (
@@ -154,7 +154,7 @@ export function ReportView({ result, filters }: ReportViewProps) {
       )}
 
       {result.tables.length > 0 && (
-        <section id="rv-tables" className="scroll-mt-36 space-y-3">
+        <section id="rv-tables" className="scroll-mt-[calc(var(--header-h)_+_4.5rem)] space-y-3">
           <SectionHeading title="Tables" hint="Top rows are shown here; Download has the full list" />
         <div
           className={`grid items-start gap-5 ${
